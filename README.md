@@ -3,7 +3,7 @@ NaviGo aplikasi desktop C# (.NET, WPF/WinForms) untuk pemesanan tiket kapal deng
 
 # Shipers
 - Ketua Kelompok: Fanny Elisabeth Panjaitan 
-- Anggota 1: Agatha Husna Amalia
+- Anggota 1: Agatha Husna Amalia - 23/515562/TK/56686
 - Anggota 2: Gabriele Ghea De Palma 
 
 
