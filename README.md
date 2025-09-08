@@ -6,6 +6,10 @@ NaviGo aplikasi desktop C# (.NET, WPF/WinForms) untuk pemesanan tiket kapal deng
 - Anggota 1: Agatha Husna Amalia - 23/515562/TK/56686
 - Anggota 2: Gabriele Ghea De Palma - 23/512218/TK/56306
 
+
+# Desain UIUX
+<img src="./uiux.png" alt="Class Diagram" width="600"/>
+
 # Domain Model
 Domain model awal mencakup beberapa entitas utama yang merepresentasikan objek dalam aplikasi:
 
