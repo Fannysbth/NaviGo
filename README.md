@@ -6,4 +6,19 @@ NaviGo aplikasi desktop C# (.NET, WPF/WinForms) untuk pemesanan tiket kapal deng
 - Anggota 1: Agatha Husna Amalia - 23/515562/TK/56686
 - Anggota 2: Gabriele Ghea De Palma - 23/512218/TK/56306
 
+# Domain Model
+Domain model awal mencakup beberapa entitas utama yang merepresentasikan objek dalam aplikasi:
+
+- **User**
+- **Product**
+- **Order**
+- **Payment**
+
+Setelah diskusi kelompok, domain model dikembangkan menjadi **class diagram** lengkap dengan atribut dan method tambahan.
+
+
+# Class Diagram Lengkap
+Berikut adalah gambar class diagram hasil pengembangan:
+
+![Class Diagram](class_diagram.png)  
 
