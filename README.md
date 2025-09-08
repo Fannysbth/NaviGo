@@ -8,7 +8,7 @@ NaviGo aplikasi desktop C# (.NET, WPF/WinForms) untuk pemesanan tiket kapal deng
 
 
 # Desain UIUX
-<img src="./uiux.png" alt="Class Diagram" width="600"/>
+<img src="./Screenshot 2025-09-08 143116.png" alt="Class Diagram" width="600"/>
 
 # Domain Model
 Domain model awal mencakup beberapa entitas utama yang merepresentasikan objek dalam aplikasi:
