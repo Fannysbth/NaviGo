@@ -20,5 +20,6 @@ Setelah diskusi kelompok, domain model dikembangkan menjadi **class diagram** le
 # Class Diagram Lengkap
 Berikut adalah gambar class diagram hasil pengembangan:
 
+<img src="./Class Diagram.drawio.png" alt="Class Diagram" width="600"/>
 ![Class Diagram]("Class Diagram.drawio.png")  
 
