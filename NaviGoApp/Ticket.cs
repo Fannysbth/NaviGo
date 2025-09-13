@@ -6,16 +6,12 @@ using System.Threading.Tasks;
 
 namespace NaviGo
 {
-    internal class Ticket
+
+    public class Ticket
     {
         public int TicketId { get; set; }
         public string PassengerName { get; set; }
         public DateTime Date { get; set; }
-        public Booking Booking { get; set; } // Relasi ke Booking
-
-        public Ticket()
-        {
-        }
 
         public Ticket(int ticketId, string passengerName, DateTime date)
         {
@@ -26,10 +22,8 @@ namespace NaviGo
 
         public void DownloadTicket()
         {
-            Console.WriteLine($"Downloading ticket for {PassengerName}...");
-            Console.WriteLine($"Ticket ID: {TicketId}");
-            Console.WriteLine($"Date: {Date:yyyy-MM-dd HH:mm}");
-            Console.WriteLine("Ticket downloaded successfully.");
+            Console.WriteLine($"Downloading ticket for {PassengerName} - Ticket ID: {TicketId}");
+            // Logic untuk download ticket (bisa berupa PDF generation, dll)
         }
     }
 }

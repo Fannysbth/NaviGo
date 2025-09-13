@@ -1,0 +1,15 @@
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.AssemblyInfoInputs.cache
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.AssemblyInfo.cs
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.csproj.CoreCompileInputs.cache
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.sourcelink.json
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\bin\Debug\net9.0\NaviGoApp.exe
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\bin\Debug\net9.0\NaviGoApp.deps.json
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\bin\Debug\net9.0\NaviGoApp.runtimeconfig.json
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\bin\Debug\net9.0\NaviGoApp.dll
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\bin\Debug\net9.0\NaviGoApp.pdb
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.dll
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\refint\NaviGoApp.dll
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.pdb
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\NaviGoApp.genruntimeconfig.cache
+C:\Users\fanny\JUNPRO\NaviGo\NaviGoApp\obj\Debug\net9.0\ref\NaviGoApp.dll

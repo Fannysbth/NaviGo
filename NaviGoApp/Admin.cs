@@ -9,13 +9,15 @@ namespace NaviGo
 {
     internal class Admin : User
     {
-        public Admin() : base()
+        // Constructor lengkap: langsung set Role Admin
+        public Admin(int userId, string username, string email)
+            : base(userId, username, email, UserRole.Admin)
         {
-            Role = Role.Admin;
         }
 
-        public Admin(int userId, string username, string email)
-            : base(userId, username, email, Role.Admin)
+        // Jika mau constructor kosong, beri nilai default untuk base
+        public Admin() 
+            : base(0, "defaultAdmin", "admin@example.com", UserRole.Admin)
         {
         }
 
