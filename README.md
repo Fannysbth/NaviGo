@@ -26,4 +26,10 @@ Berikut adalah gambar class diagram hasil pengembangan:
 
 <img src="./Class Diagram.drawio.png" alt="Class Diagram" width="600"/>
 
+# Diagram ERD Lengkap
+Berikut adalah gambar ERD database hasil pengembangan:
+
+<img src="./NaviGo ERD.png" alt="Class Diagram" width="600"/>
+
+
 
