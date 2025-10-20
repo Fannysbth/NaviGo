@@ -1,0 +1,9 @@
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.csproj.AssemblyReference.cache
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI_NaviGO.Properties.Resources.resources
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.csproj.GenerateResource.cache
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.csproj.CoreCompileInputs.cache
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.exe.config
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.exe
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.pdb
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.exe
+C:\Users\Fanny\project\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.pdb
