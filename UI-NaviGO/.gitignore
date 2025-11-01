@@ -1,0 +1,17 @@
+# Ignore Visual Studio cache and build files
+.vs/
+bin/
+obj/
+Debug/
+Release/
+*.user
+*.suo
+*.vsidx
+*.cache
+*.log
+*.tmp
+*.db
+*.vscode/
+*.exe
+*.dll
+packages/
