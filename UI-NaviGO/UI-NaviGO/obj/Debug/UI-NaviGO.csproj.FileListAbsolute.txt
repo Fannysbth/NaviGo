@@ -17,3 +17,13 @@ C:\navi\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI_NaviGo.UserJadwal.resources
 C:\navi\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.exe.config
 C:\navi\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.exe
 C:\navi\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.pdb
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.csproj.AssemblyReference.cache
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI_NaviGO.RuteKapal.resources
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.csproj.GenerateResource.cache
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.exe
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.pdb
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI_NaviGO.Properties.Resources.resources
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\obj\Debug\UI-NaviGO.csproj.CoreCompileInputs.cache
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.exe.config
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.exe
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\UI-NaviGO.pdb

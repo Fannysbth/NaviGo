@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Threading.Tasks;
@@ -6,6 +7,71 @@ using System.Windows.Forms;
 
 namespace UI_NaviGO
 {
+    // ===============================
+    // 🔹 KELAS MODEL OOP
+    // ===============================
+
+    // 🧱 Base Class: Encapsulation
+    public class RuteKapal
+    {
+        private string id;
+        private string kapal;
+        private string rute;
+        private DateTime tanggal;
+        private decimal harga;
+
+        public string ID { get => id; set => id = value; }
+        public string Kapal { get => kapal; set => kapal = value; }
+        public string Rute { get => rute; set => rute = value; }
+        public DateTime Tanggal { get => tanggal; set => tanggal = value; }
+        public decimal Harga
+        {
+            get => harga;
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentException("Harga tidak boleh negatif!");
+                harga = value;
+            }
+        }
+
+        public RuteKapal(string id, string kapal, string rute, DateTime tanggal, decimal harga)
+        {
+            ID = id;
+            Kapal = kapal;
+            Rute = rute;
+            Tanggal = tanggal;
+            Harga = harga;
+        }
+
+        // 🔸 Virtual agar bisa di-override oleh subclass (Polymorphism)
+        public virtual string GetInfo()
+        {
+            return $"{ID} - {Kapal} ({Rute}) pada {Tanggal:dd MMM yyyy} - Rp {Harga:N0}";
+        }
+    }
+
+    // 🧱 Subclass: Inheritance + Polymorphism
+    public class RuteVIP : RuteKapal
+    {
+        public string FasilitasVIP { get; set; }
+
+        public RuteVIP(string id, string kapal, string rute, DateTime tanggal, decimal harga, string fasilitas)
+            : base(id, kapal, rute, tanggal, harga)
+        {
+            FasilitasVIP = fasilitas;
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + $" | Fasilitas: {FasilitasVIP}";
+        }
+    }
+
+    // ===============================
+    // 🔹 FORM USERJADWAL
+    // ===============================
+
     public partial class UserJadwal : Form
     {
         private DataGridView dgv;
@@ -15,6 +81,33 @@ namespace UI_NaviGO
             BuildUI();
             this.Opacity = 1;
             this.FormClosed += (s, e) => Application.Exit();
+
+            // 🔸 Panggil method untuk load data (OOP)
+            LoadDataRute();
+        }
+
+        // 🔹 Method menggunakan OOP (Polymorphism)
+        private void LoadDataRute()
+        {
+            List<RuteKapal> daftarRute = new List<RuteKapal>
+            {
+                new RuteKapal("KJ02", "Kapal Jetsar", "Jakarta - Batam", new DateTime(2025, 9, 15), 750000),
+                new RuteVIP("KK01", "Kapal Kastar", "Surabaya - Bali", new DateTime(2025, 12, 12), 300000, "Snack + Lounge")
+            };
+
+            dgv.Rows.Clear();
+
+            foreach (var rute in daftarRute)
+            {
+                dgv.Rows.Add(
+                    rute.ID,
+                    rute.Kapal,
+                    rute.Rute,
+                    rute.Tanggal.ToString("dd MMM yyyy"),
+                    "-", "-", "-", $"Rp {rute.Harga:N0}"
+                );
+                Console.WriteLine(rute.GetInfo());
+            }
         }
 
         // 🔹 Animasi transisi antar form (fade in/out)
@@ -38,21 +131,18 @@ namespace UI_NaviGO
 
         private void BuildUI()
         {
-            // === FORM ===
             this.Text = "NaviGo - Ship Easily";
             this.Size = new Size(1280, 720);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.BackColor = Color.White;
 
-            // === BACKGROUND ===
             PictureBox bg = new PictureBox();
             bg.Dock = DockStyle.Fill;
             bg.Image = MakeSemiTransparent(Properties.Resources.sunset_picture, 0.5f);
             bg.SizeMode = PictureBoxSizeMode.StretchImage;
             this.Controls.Add(bg);
 
-            // === SIDEBAR ===
             Panel sidebar = new Panel();
             sidebar.Dock = DockStyle.Left;
             sidebar.Width = 250;
@@ -81,18 +171,12 @@ namespace UI_NaviGO
             sidebar.Controls.Add(btnJadwal);
             sidebar.Controls.Add(btnRiwayat);
 
-            // 🔹 Tambahkan navigasi ke UserHistory (tanpa ubah desain)
-            btnRiwayat.Click += (s, e) =>
-            {
-                SwitchTo(new UserHistory());
-            };
-
+            btnRiwayat.Click += (s, e) => SwitchTo(new UserHistory());
             btnJadwal.MouseEnter += (s, e) => btnJadwal.BackColor = Color.FromArgb(180, 220, 220);
             btnJadwal.MouseLeave += (s, e) => btnJadwal.BackColor = Color.FromArgb(200, 230, 225);
             btnRiwayat.MouseEnter += (s, e) => btnRiwayat.BackColor = Color.FromArgb(220, 240, 240);
             btnRiwayat.MouseLeave += (s, e) => btnRiwayat.BackColor = Color.White;
 
-            // === HEADER ===
             Panel header = new Panel();
             header.Dock = DockStyle.Top;
             header.Height = 65;
@@ -145,7 +229,6 @@ namespace UI_NaviGO
             PositionRightElements();
             header.Resize += (s, e) => PositionRightElements();
 
-            // 🔹 Navigasi tombol Profile dan Logout
             btnProfile.Click += (s, e) => SwitchTo(new FormProfileUser());
             btnLogout.Click += (s, e) =>
             {
@@ -156,13 +239,11 @@ namespace UI_NaviGO
                 }
             };
 
-            // === MAIN CARD ===
             Panel card = new Panel();
             card.Size = new Size(950, 500);
             card.Location = new Point(280, 120);
             card.BackColor = Color.White;
             card.Padding = new Padding(20);
-            card.BorderStyle = BorderStyle.None;
             this.Controls.Add(card);
             card.BringToFront();
 
@@ -179,15 +260,7 @@ namespace UI_NaviGO
             cbxDari.DropDownStyle = ComboBoxStyle.DropDownList;
             cbxDari.Items.AddRange(new string[] { "Pilih Asal Kota / Pelabuhan", "Jakarta", "Surabaya" });
             cbxDari.SelectedIndex = 0;
-            cbxDari.SelectedIndexChanged += CbxDari_SelectedIndexChanged;
             card.Controls.Add(cbxDari);
-
-            PictureBox swapIcon = new PictureBox();
-            swapIcon.Size = new Size(30, 30);
-            swapIcon.Location = new Point(235, 35);
-            swapIcon.SizeMode = PictureBoxSizeMode.StretchImage;
-            swapIcon.Image = Properties.Resources.swap_icon;
-            card.Controls.Add(swapIcon);
 
             Label lblKe = new Label();
             lblKe.Text = "Ke";
@@ -202,7 +275,6 @@ namespace UI_NaviGO
             cbxKe.DropDownStyle = ComboBoxStyle.DropDownList;
             cbxKe.Items.AddRange(new string[] { "Pilih Tujuan Kota / Pelabuhan", "Batam", "Bali" });
             cbxKe.SelectedIndex = 0;
-            cbxKe.SelectedIndexChanged += CbxKe_SelectedIndexChanged;
             card.Controls.Add(cbxKe);
 
             Label lblTanggal = new Label();
@@ -215,10 +287,8 @@ namespace UI_NaviGO
             dtpTanggal.Location = new Point(510, 35);
             dtpTanggal.Width = 250;
             dtpTanggal.Font = new Font("Segoe UI", 9);
-            dtpTanggal.ValueChanged += DtpTanggal_ValueChanged;
             card.Controls.Add(dtpTanggal);
 
-            // === TABLE ===
             dgv = new DataGridView();
             dgv.Location = new Point(20, 90);
             dgv.Size = new Size(900, 360);
@@ -241,33 +311,8 @@ namespace UI_NaviGO
             dgv.Columns.Add("Tiba", "Tiba");
             dgv.Columns.Add("Transit", "Transit");
             dgv.Columns.Add("Harga", "Harga");
-            dgv.Columns.Add("Action", "Action");
 
-            dgv.Rows.Add("KJ02", "Kapal Jetsar", "Jakarta - Batam", "15 Sep 2025", "07:00", "10:00", "Direct", "Rp 750,000");
-            dgv.Rows.Add("KK01", "Kapal Kastar", "Surabaya - Bali", "12 Des 2025", "12:00", "13:00", "Transit", "Rp 300,000");
-
-            dgv.CellMouseClick += DgvRoutes_CellMouseClick;
             card.Controls.Add(dgv);
-
-            dgv.CellPainting += (s, e) =>
-            {
-                if (e.RowIndex >= 0 && e.ColumnIndex == dgv.Columns["Action"].Index)
-                {
-                    e.PaintBackground(e.CellBounds, true);
-                    Rectangle btn1 = new Rectangle(e.CellBounds.X + 5, e.CellBounds.Y + 5, 50, 22);
-                    Rectangle btn2 = new Rectangle(e.CellBounds.X + 60, e.CellBounds.Y + 5, 50, 22);
-
-                    using (SolidBrush b1 = new SolidBrush(Color.LightGreen))
-                        e.Graphics.FillRectangle(b1, btn1);
-                    TextRenderer.DrawText(e.Graphics, "View", dgv.Font, btn1, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-
-                    using (SolidBrush b2 = new SolidBrush(Color.Orange))
-                        e.Graphics.FillRectangle(b2, btn2);
-                    TextRenderer.DrawText(e.Graphics, "Pilih", dgv.Font, btn2, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-
-                    e.Handled = true;
-                }
-            };
         }
 
         private Button CreateSidebarButton(string text, int top)
@@ -291,9 +336,9 @@ namespace UI_NaviGO
             Bitmap bmp = new Bitmap(original.Width, original.Height);
             using (Graphics g = Graphics.FromImage(bmp))
             {
-                ColorMatrix cm = new ColorMatrix();
+                var cm = new ColorMatrix();
                 cm.Matrix33 = opacity;
-                using (ImageAttributes ia = new ImageAttributes())
+                using (var ia = new ImageAttributes())
                 {
                     ia.SetColorMatrix(cm);
                     g.DrawImage(original, new Rectangle(0, 0, original.Width, original.Height),
@@ -301,24 +346,6 @@ namespace UI_NaviGO
                 }
             }
             return bmp;
-        }
-
-        private void CbxDari_SelectedIndexChanged(object sender, EventArgs e) { }
-        private void CbxKe_SelectedIndexChanged(object sender, EventArgs e) { }
-        private void DtpTanggal_ValueChanged(object sender, EventArgs e) { }
-
-        private void DgvRoutes_CellMouseClick(object sender, DataGridViewCellMouseEventArgs e)
-        {
-            if (e.RowIndex >= 0 && e.ColumnIndex == dgv.Columns["Action"].Index)
-            {
-                Rectangle btn1 = new Rectangle(5, 5, 50, 22);
-                Rectangle btn2 = new Rectangle(60, 5, 50, 22);
-
-                if (btn1.Contains(e.X, e.Y))
-                    MessageBox.Show("View clicked for " + dgv.Rows[e.RowIndex].Cells["Rute"].Value);
-                else if (btn2.Contains(e.X, e.Y))
-                    MessageBox.Show("Pilih clicked for " + dgv.Rows[e.RowIndex].Cells["Rute"].Value);
-            }
         }
     }
 }

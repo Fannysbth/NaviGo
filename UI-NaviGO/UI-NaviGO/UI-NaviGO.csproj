@@ -102,9 +102,7 @@
     <Compile Include="Properties\UserSuccess.Designer.cs">
       <DependentUpon>UserSuccess.cs</DependentUpon>
     </Compile>
-    <Compile Include="UserJadwal.cs">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="UserJadwal.cs" />
     <Compile Include="UserJadwal.Designer.cs">
       <DependentUpon>UserJadwal.cs</DependentUpon>
     </Compile>

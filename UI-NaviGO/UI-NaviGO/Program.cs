@@ -11,6 +11,6 @@ namespace UI_NaviGO
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new UserLogin()); // mulai dari login
-        }
+        } 
     }
 }

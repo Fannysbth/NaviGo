@@ -130,9 +130,6 @@
   <data name="penumpang_bg" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\pexels-pixabay-221387.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="profile_bg" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\bin\Debug\profile_bg.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="register_bg" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\2d31ca27-7806-4c00-a128-8d2e34168d86.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -147,5 +144,8 @@
   </data>
   <data name="tiket_bg" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\pexels-vincent-gerbouin-445991-1174732.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="profile_bg" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Lune croissante ou décroissante, comment le savoir _.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>
