@@ -9,11 +9,16 @@ namespace UI_NaviGO
     {
         private Panel sidebarPanel;
         private Panel topPanel;
+        private ComboBox cmbKategori;
+        private TextBox txtNama;
+        private TextBox txtNIK;
+        private Button btnNext;
 
         public UserPenumpang()
         {
             InitializeComponent();
             BuildUI();
+            SetupEvents();
         }
 
         private void BuildUI()
@@ -81,11 +86,6 @@ namespace UI_NaviGO
                 Padding = new Padding(20, 0, 0, 0)
             };
             btnJadwal.FlatAppearance.BorderSize = 0;
-            btnJadwal.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserDashboard().Show();
-            };
 
             // 🔹 tombol riwayat
             Button btnRiwayat = new Button()
@@ -101,13 +101,6 @@ namespace UI_NaviGO
                 BackColor = Color.White
             };
             btnRiwayat.FlatAppearance.BorderSize = 0;
-
-            // 👉 arahkan ke UserHistory
-            btnRiwayat.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserHistory().Show();
-            };
 
             sidebarPanel.Controls.AddRange(new Control[] { btnRiwayat, btnJadwal, logoPanel });
 
@@ -146,13 +139,6 @@ namespace UI_NaviGO
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             btnProfile.FlatAppearance.BorderSize = 0;
-            btnProfile.Click += (s, e) =>
-            {
-                FormProfileUser profileForm = new FormProfileUser();
-                profileForm.Closed += (s2, e2) => this.Close();
-                profileForm.Show();
-                this.Hide();
-            };
 
             Button btnLogout = new Button()
             {
@@ -166,11 +152,6 @@ namespace UI_NaviGO
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             btnLogout.FlatAppearance.BorderSize = 0;
-            btnLogout.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserLogin().Show();
-            };
 
             topPanel.Resize += (s, e) =>
             {
@@ -191,7 +172,7 @@ namespace UI_NaviGO
 
             Panel card = new Panel()
             {
-                Size = new Size(850, 330),
+                Size = new Size(850, 400),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
@@ -202,57 +183,105 @@ namespace UI_NaviGO
                 Text = "Detail Penumpang",
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(300, 20)
+                Location = new Point(300, 30)
             };
             card.Controls.Add(lblDetail);
 
-            ComboBox cmbKategori = new ComboBox()
+            // Info Tiket yang dipilih
+            if (TiketManager.TiketDipilih != null)
+            {
+                Label lblInfoTiket = new Label()
+                {
+                    Text = $"Kapal: {TiketManager.TiketDipilih.NamaKapal} | Rute: {TiketManager.TiketDipilih.Rute}",
+                    Font = new Font("Segoe UI", 10),
+                    ForeColor = Color.Gray,
+                    Location = new Point(50, 70),
+                    AutoSize = true
+                };
+                card.Controls.Add(lblInfoTiket);
+            }
+
+            cmbKategori = new ComboBox()
             {
                 Location = new Point(60, 120),
                 Size = new Size(180, 32),
                 Font = new Font("Segoe UI", 10),
-                Text = "Pilih Kategori"
+                DropDownStyle = ComboBoxStyle.DropDownList
             };
             cmbKategori.Items.AddRange(new string[] { "Dewasa", "Anak-anak", "Lansia" });
+            cmbKategori.SelectedIndex = 0;
             card.Controls.Add(cmbKategori);
 
-            TextBox txtNama = new TextBox()
+            Label lblKategori = new Label()
             {
-                Text = "Nama Penumpang 1",
+                Text = "Kategori Penumpang",
+                Location = new Point(60, 100),
+                Font = new Font("Segoe UI", 9),
+                AutoSize = true
+            };
+            card.Controls.Add(lblKategori);
+
+            txtNama = new TextBox()
+            {
                 Location = new Point(280, 120),
                 Size = new Size(200, 32),
                 Font = new Font("Segoe UI", 10)
             };
+            // Setup placeholder manual
+            SetupTextBoxPlaceholder(txtNama, "Nama Lengkap Penumpang");
             card.Controls.Add(txtNama);
 
-            TextBox txtNIK = new TextBox()
+            Label lblNama = new Label()
             {
-                Text = "Masukkan NIK",
-                ForeColor = Color.Gray,
+                Text = "Nama Lengkap",
+                Location = new Point(280, 100),
+                Font = new Font("Segoe UI", 9),
+                AutoSize = true
+            };
+            card.Controls.Add(lblNama);
+
+            txtNIK = new TextBox()
+            {
                 Location = new Point(520, 120),
                 Size = new Size(250, 32),
                 Font = new Font("Segoe UI", 10)
             };
-            txtNIK.Enter += (s, e) => { if (txtNIK.Text == "Masukkan NIK") { txtNIK.Text = ""; txtNIK.ForeColor = Color.Black; } };
-            txtNIK.Leave += (s, e) => { if (string.IsNullOrWhiteSpace(txtNIK.Text)) { txtNIK.Text = "Masukkan NIK"; txtNIK.ForeColor = Color.Gray; } };
+            // Setup placeholder manual
+            SetupTextBoxPlaceholder(txtNIK, "Nomor Induk Kependudukan");
             card.Controls.Add(txtNIK);
 
-            Button btnNext = new Button()
+            Label lblNIK = new Label()
             {
-                Text = "Next",
+                Text = "NIK",
+                Location = new Point(520, 100),
+                Font = new Font("Segoe UI", 9),
+                AutoSize = true
+            };
+            card.Controls.Add(lblNIK);
+
+            btnNext = new Button()
+            {
+                Text = "Next →",
                 Font = new Font("Segoe UI", 12, FontStyle.Bold),
                 Size = new Size(250, 45),
-                Location = new Point(300, 220),
-                BackColor = Color.FromArgb(250, 180, 150),
+                Location = new Point(300, 200),
+                BackColor = Color.FromArgb(255, 204, 153),
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = Color.FromArgb(0, 85, 92)
             };
-            btnNext.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserPembayaran().Show();
-            };
             card.Controls.Add(btnNext);
+
+            // Tombol tambah penumpang
+            Button btnTambah = new Button()
+            {
+                Text = "+ Tambah Penumpang Lain",
+                Font = new Font("Segoe UI", 10),
+                Size = new Size(200, 35),
+                Location = new Point(325, 260),
+                BackColor = Color.FromArgb(200, 230, 225),
+                FlatStyle = FlatStyle.Flat
+            };
+            card.Controls.Add(btnTambah);
 
             this.Controls.AddRange(new Control[] { mainPanel, topPanel, sidebarPanel });
 
@@ -263,6 +292,155 @@ namespace UI_NaviGO
                     (mainPanel.Height - card.Height) / 2
                 );
             };
+        }
+
+        private void SetupTextBoxPlaceholder(TextBox textBox, string placeholder)
+        {
+            textBox.Text = placeholder;
+            textBox.ForeColor = Color.Gray;
+
+            textBox.Enter += (s, e) =>
+            {
+                if (textBox.Text == placeholder)
+                {
+                    textBox.Text = "";
+                    textBox.ForeColor = Color.Black;
+                }
+            };
+
+            textBox.Leave += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(textBox.Text))
+                {
+                    textBox.Text = placeholder;
+                    textBox.ForeColor = Color.Gray;
+                }
+            };
+        }
+
+        private void SetupEvents()
+        {
+            // Event tombol sidebar
+            var buttons = sidebarPanel.Controls;
+            ((Button)buttons[1]).Click += (s, e) => { this.Hide(); new UserJadwal().Show(); }; // Jadwal
+            ((Button)buttons[2]).Click += (s, e) => { this.Hide(); new UserHistory().Show(); }; // Riwayat
+
+            // Event tombol header
+            var topButtons = topPanel.Controls;
+            ((Button)topButtons[2]).Click += (s, e) => { this.Hide(); new FormProfileUser().Show(); }; // Profile
+            ((Button)topButtons[3]).Click += (s, e) =>
+            {
+                if (MessageBox.Show("Yakin ingin logout?", "Konfirmasi",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    this.Hide();
+                    new UserLogin().Show();
+                }
+            }; // Logout
+
+            // Event tombol next
+            btnNext.Click += (s, e) =>
+            {
+                if (ValidateForm())
+                {
+                    SimpanDataPenumpang();
+                    this.Hide();
+                    new UserPembayaran().Show();
+                }
+            };
+
+            // Event tombol tambah penumpang
+            var cardControls = ((Panel)((Panel)this.Controls[2]).Controls[0]).Controls;
+            foreach (Control control in cardControls)
+            {
+                if (control is Button && control.Text == "+ Tambah Penumpang Lain")
+                {
+                    control.Click += (s, e) =>
+                    {
+                        TambahPenumpangLain();
+                    };
+                    break;
+                }
+            }
+        }
+
+        private void TambahPenumpangLain()
+        {
+            if (ValidateForm())
+            {
+                SimpanDataPenumpang();
+                // Reset form untuk penumpang berikutnya
+                txtNama.Text = "Nama Lengkap Penumpang";
+                txtNama.ForeColor = Color.Gray;
+                txtNIK.Text = "Nomor Induk Kependudukan";
+                txtNIK.ForeColor = Color.Gray;
+
+                MessageBox.Show($"Penumpang {TiketManager.DaftarPenumpang[TiketManager.DaftarPenumpang.Count - 1].Nama} berhasil ditambahkan!\nTotal penumpang: {TiketManager.DaftarPenumpang.Count}",
+                              "Penumpang Ditambahkan", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private bool ValidateForm()
+        {
+            if (string.IsNullOrWhiteSpace(txtNama.Text) || txtNama.Text == "Nama Lengkap Penumpang")
+            {
+                MessageBox.Show("Harap isi nama penumpang", "Peringatan",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtNama.Focus();
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtNIK.Text) || txtNIK.Text == "Nomor Induk Kependudukan" || txtNIK.Text.Length != 16)
+            {
+                MessageBox.Show("NIK harus 16 digit", "Peringatan",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtNIK.Focus();
+                return false;
+            }
+
+            // Validasi NIK hanya angka
+            if (!long.TryParse(txtNIK.Text, out _))
+            {
+                MessageBox.Show("NIK harus berupa angka", "Peringatan",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtNIK.Focus();
+                return false;
+            }
+
+            return true;
+        }
+
+        private void SimpanDataPenumpang()
+        {
+            // Add current passenger
+            TiketManager.DaftarPenumpang.Add(new Penumpang
+            {
+                Nama = txtNama.Text,
+                NIK = txtNIK.Text,
+                Kategori = cmbKategori.SelectedItem?.ToString() ?? "Dewasa"
+            });
+
+            // Calculate total harga
+            decimal hargaPerTiket = TiketManager.TiketDipilih?.Harga ?? 0;
+
+            // Adjust price based on category
+            foreach (var penumpang in TiketManager.DaftarPenumpang)
+            {
+                if (penumpang.Kategori == "Anak-anak")
+                {
+                    hargaPerTiket += (TiketManager.TiketDipilih?.Harga ?? 0) * 0.5m; // 50% for children
+                }
+                else if (penumpang.Kategori == "Lansia")
+                {
+                    hargaPerTiket += (TiketManager.TiketDipilih?.Harga ?? 0) * 0.7m; // 30% discount for seniors
+                }
+                else
+                {
+                    hargaPerTiket += TiketManager.TiketDipilih?.Harga ?? 0;
+                }
+            }
+
+            TiketManager.TotalHarga = hargaPerTiket;
         }
 
         private Image SetImageOpacity(Image image, float opacity)
