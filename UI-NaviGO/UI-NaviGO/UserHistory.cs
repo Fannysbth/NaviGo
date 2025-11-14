@@ -82,6 +82,9 @@ namespace UI_NaviGO
                     Status = "Confirmed"
                 }
             };
+
+            // Tambahkan ke TiketManager juga
+            TiketManager.DaftarTiket.AddRange(daftarRiwayat);
         }
 
         private void InitializeUI()
@@ -90,10 +93,6 @@ namespace UI_NaviGO
             Color mainBlue = Color.FromArgb(0, 85, 92);       // teal NaviGO
             Color sidebarActive = Color.FromArgb(191, 224, 215);
             Color pageBg = Color.FromArgb(250, 246, 246);
-            Color cardHeaderBg = Color.FromArgb(95, 86, 86);
-            Color cardInnerBg = Color.FromArgb(245, 242, 242);
-
-            this.components = new System.ComponentModel.Container();
 
             // === PANEL SIDEBAR ===
             Panel sidebar = new Panel
@@ -361,32 +360,25 @@ namespace UI_NaviGO
 
             // ===== FORM SETUP =====
             this.Text = "NaviGO - Riwayat Pemesanan";
-            this.ClientSize = new Size(1200, 720);
+            this.WindowState = FormWindowState.Maximized;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.Controls.Add(content);
-            this.Controls.Add(header);
-            this.Controls.Add(sidebar);
-        }
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
 
-        private void SetupEvents()
-        {
-            // Event tombol sidebar
-            var sidebarButtons = ((Panel)this.Controls[2]).Controls;
-            ((Button)sidebarButtons[1]).Click += (s, e) =>
+            // Setup events untuk sidebar buttons
+            btnJadwalRute.Click += (s, e) =>
             {
                 this.Hide();
-                new UserDashboard().Show();
-            }; // Jadwal & Rute
+                new UserJadwal().Show();
+            };
 
-            // Event tombol header
-            var headerButtons = ((Panel)this.Controls[1]).Controls;
-            ((Button)headerButtons[1]).Click += (s, e) =>
+            btnProfile.Click += (s, e) =>
             {
                 this.Hide();
                 new FormProfileUser().Show();
-            }; // Profile
+            };
 
-            ((Button)headerButtons[2]).Click += (s, e) =>
+            btnLogout.Click += (s, e) =>
             {
                 if (MessageBox.Show("Yakin ingin logout?", "Konfirmasi",
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -394,21 +386,26 @@ namespace UI_NaviGO
                     this.Hide();
                     new UserLogin().Show();
                 }
-            }; // Logout
+            };
 
+            this.Controls.AddRange(new Control[] { content, header, sidebar });
+        }
+
+        private void SetupEvents()
+        {
             // Event filter
             var filterButtons = ((Panel)((Panel)this.Controls[0]).Controls[1]).Controls;
             foreach (Control control in filterButtons)
             {
-                if (control is Button)
+                if (control is Button btn)
                 {
-                    if (control.Text == "Filter")
+                    if (btn.Text == "Filter")
                     {
-                        control.Click += (s, e) => RefreshTampilan();
+                        btn.Click += (s, e) => RefreshTampilan();
                     }
-                    else if (control.Text == "Reset")
+                    else if (btn.Text == "Reset")
                     {
-                        control.Click += (s, e) => ResetFilter();
+                        btn.Click += (s, e) => ResetFilter();
                     }
                 }
             }
@@ -588,52 +585,54 @@ namespace UI_NaviGO
 
             Label lblTotal = new Label { Text = $"Total: {tiket.TotalHarga.ToString("C0")}", Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(34, 139, 34), AutoSize = true, Location = new Point(8, 70) };
 
-            // Tombol Download Tiket
+            // TOMBOL DOWNLOAD TIKET - SEPERTI DI USERSUCCESS
             Button btnDownload = new Button
             {
-                Text = "Download Tiket",
-                Font = new Font("Segoe UI", 8.5F),
-                Size = new Size(120, 28),
-                Location = new Point(520, 66),
-                BackColor = Color.FromArgb(173, 215, 237),
-                FlatStyle = FlatStyle.Flat,
-                Tag = tiket.ID // Simpan ID tiket di Tag
+                Text = "Download E-Ticket",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(150, 35),
+                Location = new Point(450, 65),
+                BackColor = Color.FromArgb(255, 204, 153),
+                ForeColor = Color.FromArgb(0, 85, 92),
+                FlatStyle = FlatStyle.Flat
             };
             btnDownload.FlatAppearance.BorderSize = 0;
-            btnDownload.Click += (s, e) => DownloadTiket(btnDownload.Tag.ToString());
+            btnDownload.Click += (s, e) => DownloadTiket(tiket.ID);
 
-            // Tombol Detail
+            // TOMBOL DETAIL - SEPERTI DI USERPEMBAYARAN TAPI HANYA BACA
             Button btnDetail = new Button
             {
-                Text = "Detail",
-                Font = new Font("Segoe UI", 8.5F),
-                Size = new Size(80, 28),
-                Location = new Point(650, 66),
-                BackColor = Color.White,
+                Text = "Lihat Detail",
+                Font = new Font("Segoe UI", 9F),
+                Size = new Size(100, 35),
+                Location = new Point(610, 65),
+                BackColor = Color.FromArgb(180, 220, 215),
+                ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
-                Tag = tiket.ID
+                Tag = tiket
             };
             btnDetail.FlatAppearance.BorderSize = 0;
-            btnDetail.Click += (s, e) => TampilkanDetail(btnDetail.Tag.ToString());
+            btnDetail.Click += (s, e) => TampilkanDetailPemesanan((RiwayatTiket)btnDetail.Tag);
 
-            // Tombol Reschedule (hanya untuk tiket dengan status Confirmed)
-            Button btnReschedule = new Button
+            // TOMBOL EDIT - UNTUK RESCHEDULE DAN EDIT PENUMPANG
+            Button btnEdit = new Button
             {
-                Text = "Reschedule",
-                Font = new Font("Segoe UI", 8.5F),
-                Size = new Size(90, 28),
-                Location = new Point(740, 66),
+                Text = "Edit",
+                Font = new Font("Segoe UI", 9F),
+                Size = new Size(80, 35),
+                Location = new Point(720, 65),
                 BackColor = tiket.Status == "Confirmed" ? Color.FromArgb(253, 170, 109) : Color.LightGray,
+                ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
-                Tag = tiket.ID,
+                Tag = tiket,
                 Enabled = tiket.Status == "Confirmed"
             };
-            btnReschedule.FlatAppearance.BorderSize = 0;
-            btnReschedule.Click += (s, e) => RescheduleTiket(btnReschedule.Tag.ToString());
+            btnEdit.FlatAppearance.BorderSize = 0;
+            btnEdit.Click += (s, e) => EditPemesanan((RiwayatTiket)btnEdit.Tag);
 
             Label lblBooked = new Label { Text = $"Dipesan pada: {tiket.TanggalPesan:dd MMMM yyyy}", Font = new Font("Segoe UI", 8F), ForeColor = Color.LightGray, AutoSize = true, Location = new Point(8, 100) };
 
-            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail, btnReschedule, lblBooked });
+            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail, btnEdit, lblBooked });
 
             outer.Controls.Add(inner);
             outer.Controls.Add(header);
@@ -644,7 +643,6 @@ namespace UI_NaviGO
 
         private void DownloadTiket(string idTiket)
         {
-            // Simulasi download tiket
             var tiket = daftarRiwayat.Find(t => t.ID == idTiket);
             if (tiket != null)
             {
@@ -653,81 +651,20 @@ namespace UI_NaviGO
                               $"File PDF akan disimpan di folder Downloads",
                               "Download Tiket",
                               MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // Di sini bisa ditambahkan logika untuk generate PDF
-                // GeneratePDFTicket(tiket);
             }
         }
 
-        private void TampilkanDetail(string idTiket)
+        private void TampilkanDetailPemesanan(RiwayatTiket tiket)
         {
-            var tiket = daftarRiwayat.Find(t => t.ID == idTiket);
-            if (tiket != null)
-            {
-                string detail = $"Detail Tiket:\n\n" +
-                              $"ID: {tiket.ID}\n" +
-                              $"Rute: {tiket.Rute}\n" +
-                              $"Tanggal Berangkat: {tiket.TanggalBerangkat:dd MMMM yyyy}\n" +
-                              $"Waktu: {tiket.Waktu}\n" +
-                              $"Kapal: {tiket.Kapal}\n" +
-                              $"Kelas: {tiket.Kelas}\n" +
-                              $"Penumpang: {tiket.Penumpang}\n" +
-                              $"Total: {tiket.TotalHarga.ToString("C0")}\n" +
-                              $"Status: {tiket.Status}\n" +
-                              $"Dipesan pada: {tiket.TanggalPesan:dd MMMM yyyy}";
-
-                MessageBox.Show(detail, "Detail Pemesanan",
-                              MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            FormDetailPemesanan formDetail = new FormDetailPemesanan(tiket);
+            formDetail.ShowDialog();
         }
 
-        private void RescheduleTiket(string idTiket)
+        private void EditPemesanan(RiwayatTiket tiket)
         {
-            var tiket = daftarRiwayat.Find(t => t.ID == idTiket);
-            if (tiket != null)
-            {
-                DialogResult result = MessageBox.Show($"Apakah Anda ingin reschedule tiket {idTiket}?\n" +
-                                                    $"Rute: {tiket.Rute}\n\n" +
-                                                    "Anda akan diarahkan ke halaman jadwal untuk memilih tanggal baru.",
-                                                    "Konfirmasi Reschedule",
-                                                    MessageBoxButtons.YesNo,
-                                                    MessageBoxIcon.Question);
-
-                if (result == DialogResult.Yes)
-                {
-                    // Simpan data tiket yang akan di-reschedule
-                    TiketManager.TiketDipilih = new Tiket
-                    {
-                        ID = tiket.ID,
-                        NamaKapal = tiket.Kapal,
-                        Rute = tiket.Rute,
-                        Harga = tiket.TotalHarga,
-                        TanggalBerangkat = tiket.TanggalBerangkat
-                    };
-
-                    MessageBox.Show("Silakan pilih jadwal baru di halaman berikutnya",
-                                  "Reschedule",
-                                  MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                    this.Hide();
-                    new UserJadwal().Show();
-                }
-            }
+            // Tampilkan form edit dengan opsi reschedule dan edit penumpang
+            FormEditPemesanan formEdit = new FormEditPemesanan(tiket);
+            formEdit.ShowDialog();
         }
-    }
-
-    // Class untuk menyimpan data riwayat tiket
-    public class RiwayatTiket
-    {
-        public string ID { get; set; }
-        public string Rute { get; set; }
-        public DateTime TanggalPesan { get; set; }
-        public DateTime TanggalBerangkat { get; set; }
-        public string Waktu { get; set; }
-        public string Penumpang { get; set; }
-        public string Kapal { get; set; }
-        public string Kelas { get; set; }
-        public decimal TotalHarga { get; set; }
-        public string Status { get; set; } // Confirmed, Selesai, Cancelled
     }
 }

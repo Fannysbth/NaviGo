@@ -1,197 +1,428 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace UI_NaviGO
 {
     public partial class UserJadwal : Form
     {
-        // Data rute kapal hardcode
-        private List<JadwalKapal> daftarJadwal;
+        private List<RuteKapal> daftarRuteAll;
+        private Panel sidebar;
+        private Panel topHeader;
+        private bool userSudahPilihTanggal = false;
+        private Panel contentPanel;
+        private Panel contentBox;
+        private DataGridView dgvRoutes;
+        private ComboBox cbxDari;
+        private ComboBox cbxKe;
+        private DateTimePicker dtpTanggal;
+        private UserProfile currentUser;
+
 
         public UserJadwal()
         {
             InitializeComponent();
-            SetupEvents();
+            BuildUI();
+            InitializeHardcodeData();
             LoadDataRute();
-            SetupFilterEvents();
+            SetupEventHandlers();
+            InitializeUserData();
+        }
+
+        private void InitializeUserData()
+        {
+            currentUser = new UserProfile
+            {
+                Nama = "Felicia Angel",
+                Email = "felicia.angel@example.com",
+                Telepon = "+62 812-3456-7890",
+                Password = "password123",
+                FotoProfil = null
+            };
+        }
+
+        private void BuildUI()
+        {
+            this.Text = "NaviGO - Jadwal&Rute";
+            this.WindowState = FormWindowState.Maximized;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
+
+            // SIDEBAR
+            sidebar = new Panel()
+            {
+                BackColor = Color.FromArgb(225, 240, 240),
+                Width = 250,
+                Dock = DockStyle.Left
+            };
+
+            Panel logoPanel = new Panel()
+            {
+                Height = 120,
+                Dock = DockStyle.Top
+            };
+
+            PictureBox logo = new PictureBox()
+            {
+                Size = new Size(60, 60),
+                Location = new Point(20, 25),
+                SizeMode = PictureBoxSizeMode.StretchImage,
+                BackColor = Color.Transparent,
+                Image = Properties.Resources.logo_navigo
+            };
+
+            Label lblSidebarTitle = new Label()
+            {
+                Text = "NaviGO",
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 85, 92),
+                Location = new Point(95, 35),
+                AutoSize = true
+            };
+
+            Label lblLogoSubtitle = new Label()
+            {
+                Text = "Ship Easily",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.FromArgb(0, 85, 92),
+                Location = new Point(97, 60),
+                AutoSize = true
+            };
+
+            logoPanel.Controls.AddRange(new Control[] { logo, lblSidebarTitle, lblLogoSubtitle });
+
+            Button btnJadwal = new Button()
+            {
+                Text = "  Jadwal dan Rute    >",
+                Dock = DockStyle.Top,
+                Height = 45,
+                BackColor = Color.FromArgb(200, 230, 225),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(20, 0, 0, 0)
+            };
+
+            Button btnRiwayat = new Button()
+            {
+                Text = "Riwayat Pemesanan",
+                Dock = DockStyle.Top,
+                Height = 45,
+                BackColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(20, 0, 0, 0)
+            };
+
+            btnRiwayat.FlatAppearance.BorderSize = 0;
+            btnJadwal.FlatAppearance.BorderSize = 0;
+
+            btnRiwayat.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserHistory().Show();
+            };
+
+            sidebar.Controls.AddRange(new Control[]
+            {
+                btnRiwayat, btnJadwal, logoPanel
+            });
+
+            // HEADER
+            topHeader = new Panel()
+            {
+                BackColor = Color.Teal,
+                Height = 70,
+                Dock = DockStyle.Top
+            };
+
+            Label lblHeaderTitle = new Label()
+            {
+                Text = "Jadwal & Rute Kapal",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Location = new Point(15, 20),
+                AutoSize = true
+            };
+
+            Label lblUsername = new Label()
+            {
+                Text = $"Halo, User",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 11),
+                AutoSize = true
+            };
+
+            Button btnProfile = new Button()
+            {
+                Text = "Profile",
+                BackColor = Color.White,
+                Width = 90,
+                Height = 35,
+                Font = new Font("Segoe UI", 9),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            btnProfile.FlatAppearance.BorderSize = 0;
+            btnProfile.Click += (s, e) =>
+            {
+                FormProfileUser profileForm = new FormProfileUser();
+                profileForm.Closed += (s2, e2) => this.Close();
+                profileForm.Show();
+                this.Hide();
+            };
+
+            Button btnLogout = new Button()
+            {
+                Text = "Logout",
+                BackColor = Color.FromArgb(210, 80, 60),
+                Width = 90,
+                Height = 35,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9),
+                FlatStyle = FlatStyle.Flat,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            btnLogout.FlatAppearance.BorderSize = 0;
+            btnLogout.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserLogin().Show();
+            };
+
+            topHeader.Resize += (s, e) =>
+            {
+                btnLogout.Location = new Point(topHeader.Width - 110, 18);
+                btnProfile.Location = new Point(topHeader.Width - 210, 18);
+                lblUsername.Location = new Point(topHeader.Width - 350, 22);
+            };
+
+            topHeader.Controls.AddRange(new Control[] { lblHeaderTitle, lblUsername, btnProfile, btnLogout });
+
+
+
+            // CONTENT
+            contentPanel = new Panel()
+            {
+                Dock = DockStyle.Fill,
+                BackgroundImageLayout = ImageLayout.Stretch,
+                BackColor = Color.White
+            };
+
+            contentPanel.BackgroundImage = SetImageOpacity(Properties.Resources.tiket_bg, 0.3f);
+
+            contentBox = new Panel()
+            {
+                Size = new Size(900, 480),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            contentPanel.Controls.Add(contentBox);
+
+            contentPanel.Resize += (s, e) =>
+            {
+                contentBox.Location = new Point(
+                    (contentPanel.Width - contentBox.Width) / 2,
+                    (contentPanel.Height - contentBox.Height) / 2
+                );
+            };
+
+            this.Controls.Add(contentPanel);
+            this.Controls.Add(topHeader);
+            this.Controls.Add(sidebar);
+
+            // FILTERS
+            Label lblDari = new Label()
+            {
+                Text = "Dari",
+                Location = new Point(50, 30),
+                Font = new Font("Segoe UI", 10)
+            };
+
+            cbxDari = new ComboBox()
+            {
+                Location = new Point(50, 55),
+                Width = 250,
+                Font = new Font("Segoe UI", 10)
+            };
+            cbxDari.Items.AddRange(new[] { "Semua", "Jakarta", "Surabaya", "Batam", "Bali" });
+            cbxDari.SelectedIndex = 0;
+
+            Label lblKe = new Label()
+            {
+                Text = "Ke",
+                Location = new Point(350, 30),
+                Font = new Font("Segoe UI", 10)
+            };
+
+            cbxKe = new ComboBox()
+            {
+                Location = new Point(350, 55),
+                Width = 250,
+                Font = new Font("Segoe UI", 10)
+            };
+            cbxKe.Items.AddRange(new[] { "Semua", "Jakarta", "Surabaya", "Batam", "Bali" });
+            cbxKe.SelectedIndex = 0;
+
+            Label lblTanggal = new Label()
+            {
+                Text = "Filter",
+                Location = new Point(650, 30),
+                Font = new Font("Segoe UI", 10)
+            };
+
+            dtpTanggal = new DateTimePicker()
+            {
+                Location = new Point(650, 55),
+                Font = new Font("Segoe UI", 10)
+            };
+
+            dtpTanggal.ValueChanged += (s, e) =>
+            {
+                userSudahPilihTanggal = true;
+                FilterData(null, null);
+            };
+
+            dgvRoutes = new DataGridView()
+            {
+                Dock = DockStyle.Bottom,
+                Height = 350,
+                ReadOnly = true,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false,
+                BackgroundColor = Color.White,
+            };
+
+            dgvRoutes.Columns.Add("ID", "ID");
+            dgvRoutes.Columns.Add("Kapal", "Kapal");
+            dgvRoutes.Columns.Add("Rute", "Rute");
+            dgvRoutes.Columns.Add("Tanggal", "Tanggal");
+            dgvRoutes.Columns.Add("Pergi", "Pergi");
+            dgvRoutes.Columns.Add("Tiba", "Tiba");
+            dgvRoutes.Columns.Add("Transit", "Transit");
+            dgvRoutes.Columns.Add("Harga", "Harga");
+
+            DataGridViewButtonColumn pilihCol = new DataGridViewButtonColumn()
+            {
+                HeaderText = "Aksi",
+                Text = "Pilih",
+                UseColumnTextForButtonValue = true,
+                Name = "colPilih"
+            };
+            dgvRoutes.Columns.Add(pilihCol);
+
+            contentBox.Controls.AddRange(new Control[]
+            {
+                lblDari, cbxDari,
+                lblKe, cbxKe,
+                lblTanggal, dtpTanggal,
+                dgvRoutes
+            });
+        }
+
+        private Image SetImageOpacity(Image image, float opacity)
+        {
+            Bitmap bmp = new Bitmap(image.Width, image.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                ColorMatrix m = new ColorMatrix();
+                m.Matrix33 = opacity;
+
+                ImageAttributes ia = new ImageAttributes();
+                ia.SetColorMatrix(m, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+
+                g.DrawImage(image, new Rectangle(0, 0, bmp.Width, bmp.Height),
+                    0, 0, image.Width, image.Height,
+                    GraphicsUnit.Pixel, ia);
+            }
+            return bmp;
+        }
+
+        private void InitializeHardcodeData()
+        {
+            daftarRuteAll = new List<RuteKapal>
+            {
+                new RuteKapal("KP001","Kapal Pelni","Jakarta - Batam",new DateTime(2025,11,20),"08:00","14:00","Langsung",750000),
+                new RuteKapal("KP002","Kapal Jaya","Surabaya - Bali",new DateTime(2025,12,10),"07:00","12:00","Transit 1x",450000),
+                new RuteKapal("KP003","Kapal Maritim","Bali - Surabaya",new DateTime(2025,12,18),"11:00","18:00","Langsung",350000)
+            };
         }
 
         private void LoadDataRute()
         {
-            // Inisialisasi data jadwal
-            daftarJadwal = new List<JadwalKapal>
-            {
-                new JadwalKapal { ID = "KJ01", NamaKapal = "KM Express", Dari = "Jakarta", Ke = "Batam",
-                                 Tanggal = "15 Sep 2024", Pergi = "08:00", Tiba = "14:00",
-                                 Transit = "Langsung", Harga = 750000 },
-                new JadwalKapal { ID = "KS02", NamaKapal = "KM Sejahtera", Dari = "Surabaya", Ke = "Bali",
-                                 Tanggal = "16 Sep 2024", Pergi = "09:30", Tiba = "16:45",
-                                 Transit = "Transit 1x", Harga = 550000 },
-                new JadwalKapal { ID = "KM03", NamaKapal = "KM Bahari", Dari = "Semarang", Ke = "Makassar",
-                                 Tanggal = "17 Sep 2024", Pergi = "07:15", Tiba = "19:30",
-                                 Transit = "Transit 2x", Harga = 1200000 },
-                new JadwalKapal { ID = "KP04", NamaKapal = "KM Pelangi", Dari = "Bali", Ke = "Lombok",
-                                 Tanggal = "18 Sep 2024", Pergi = "10:00", Tiba = "12:30",
-                                 Transit = "Langsung", Harga = 350000 },
-                new JadwalKapal { ID = "KV05", NamaKapal = "KM Victory", Dari = "Jakarta", Ke = "Surabaya",
-                                 Tanggal = "19 Sep 2024", Pergi = "06:45", Tiba = "20:15",
-                                 Transit = "Transit 1x", Harga = 900000 }
-            };
-
-            // Isi combobox filter
-            cbxDari.Items.AddRange(new string[] { "Semua Kota", "Jakarta", "Surabaya", "Semarang", "Bali" });
-            cbxKe.Items.AddRange(new string[] { "Semua Kota", "Batam", "Bali", "Makassar", "Lombok", "Surabaya" });
-
-            cbxDari.SelectedIndex = 0;
-            cbxKe.SelectedIndex = 0;
-
-            RefreshDataGrid();
-        }
-
-        private void RefreshDataGrid()
-        {
             dgvRoutes.Rows.Clear();
 
-            foreach (var jadwal in daftarJadwal)
+            foreach (var r in daftarRuteAll)
             {
-                // Filter data
-                if (cbxDari.SelectedIndex > 0 && jadwal.Dari != cbxDari.SelectedItem.ToString())
-                    continue;
-
-                if (cbxKe.SelectedIndex > 0 && jadwal.Ke != cbxKe.SelectedItem.ToString())
-                    continue;
-
-                if (dtpTanggal.Value.Date != DateTime.Today &&
-                    DateTime.Parse(jadwal.Tanggal).Date != dtpTanggal.Value.Date)
-                    continue;
-
                 dgvRoutes.Rows.Add(
-                    jadwal.ID,
-                    jadwal.NamaKapal,
-                    $"{jadwal.Dari} - {jadwal.Ke}",
-                    jadwal.Tanggal,
-                    jadwal.Pergi,
-                    jadwal.Tiba,
-                    jadwal.Transit,
-                    jadwal.Harga.ToString("C0")
+                    r.ID, r.Kapal, r.Rute,
+                    r.Tanggal.ToString("dd MMM yyyy"),
+                    r.JamBerangkat, r.JamTiba,
+                    r.Transit, $"Rp {r.Harga:N0}"
                 );
             }
         }
 
-        private void SetupEvents()
+        private void SetupEventHandlers()
         {
-            // Event untuk tombol di header
-            btnLogout.Click += (s, e) =>
+            cbxDari.SelectedIndexChanged += FilterData;
+            cbxKe.SelectedIndexChanged += FilterData;
+            dtpTanggal.ValueChanged += FilterData;
+
+            dgvRoutes.CellClick += (s, e) =>
             {
-                if (MessageBox.Show("Yakin ingin logout?", "Konfirmasi",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                if (e.RowIndex >= 0 && e.ColumnIndex == dgvRoutes.Columns["colPilih"].Index)
                 {
+                    string id = dgvRoutes.Rows[e.RowIndex].Cells[0].Value.ToString();
+                    SelectedTicketData.SelectedRute = daftarRuteAll.Find(x => x.ID == id);
+
+                    // Langsung ke UserPenumpang, bukan UserDashboard
                     this.Hide();
-                    new UserLogin().Show();
-                }
-            };
-
-            btnProfile.Click += (s, e) =>
-            {
-                this.Hide();
-                new FormProfileUser().Show();
-            };
-
-            // Double click pada row untuk memilih
-            dgvRoutes.CellDoubleClick += (s, e) =>
-            {
-                if (e.RowIndex >= 0)
-                {
-                    PilihJadwal(e.RowIndex);
-                }
-            };
-
-            // Enter key untuk memilih
-            dgvRoutes.KeyPress += (s, e) =>
-            {
-                if (e.KeyChar == (char)13 && dgvRoutes.CurrentRow != null) // Enter key
-                {
-                    PilihJadwal(dgvRoutes.CurrentRow.Index);
+                    new UserPenumpang().Show();
                 }
             };
         }
 
-        private void SetupFilterEvents()
+        private void FilterData(object sender, EventArgs e)
         {
-            cbxDari.SelectedIndexChanged += (s, e) => RefreshDataGrid();
-            cbxKe.SelectedIndexChanged += (s, e) => RefreshDataGrid();
-            dtpTanggal.ValueChanged += (s, e) => RefreshDataGrid();
-        }
+            List<RuteKapal> filtered = new List<RuteKapal>(daftarRuteAll);
 
-        private void PilihJadwal(int rowIndex)
-        {
-            var selectedRow = dgvRoutes.Rows[rowIndex];
-            string idKapal = selectedRow.Cells["colID"].Value?.ToString() ?? "";
+            // FILTER DARI
+            if (cbxDari.Text != "Semua")
+                filtered = filtered.FindAll(r => r.GetKotaAsal() == cbxDari.Text);
 
-            var jadwalTerpilih = daftarJadwal.Find(j => j.ID == idKapal);
+            // FILTER KE
+            if (cbxKe.Text != "Semua")
+                filtered = filtered.FindAll(r => r.GetKotaTujuan() == cbxKe.Text);
 
-            if (jadwalTerpilih != null)
+            // Filter tanggal hanya aktif jika user sudah pilih tanggal
+            if (userSudahPilihTanggal)
             {
-                // Simpan data tiket yang dipilih
-                TiketManager.TiketDipilih = new Tiket
-                {
-                    ID = jadwalTerpilih.ID,
-                    NamaKapal = jadwalTerpilih.NamaKapal,
-                    Rute = $"{jadwalTerpilih.Dari} - {jadwalTerpilih.Ke}",
-                    Harga = jadwalTerpilih.Harga,
-                    TanggalBerangkat = DateTime.Parse(jadwalTerpilih.Tanggal + " " + jadwalTerpilih.Pergi)
-                };
+                filtered = filtered.FindAll(r =>
+                    r.Tanggal.Month == dtpTanggal.Value.Month &&
+                    r.Tanggal.Year == dtpTanggal.Value.Year
+                );
+            }
 
-                MessageBox.Show($"Tiket {jadwalTerpilih.NamaKapal} dipilih!\n" +
-                              $"Rute: {jadwalTerpilih.Dari} - {jadwalTerpilih.Ke}\n" +
-                              $"Harga: {jadwalTerpilih.Harga.ToString("C0")}",
-                              "Berhasil", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            dgvRoutes.Rows.Clear();
 
-                this.Hide();
-                new UserPenumpang().Show();
+            foreach (var r in filtered)
+            {
+                dgvRoutes.Rows.Add(
+                    r.ID, r.Kapal, r.Rute,
+                    r.Tanggal.ToString("dd MMM yyyy"),
+                    r.JamBerangkat, r.JamTiba,
+                    r.Transit,
+                    $"Rp {r.Harga:N0}"
+                );
             }
         }
-    }
-
-    // Class untuk menyimpan data jadwal
-    public class JadwalKapal
-    {
-        public string ID { get; set; }
-        public string NamaKapal { get; set; }
-        public string Dari { get; set; }
-        public string Ke { get; set; }
-        public string Tanggal { get; set; }
-        public string Pergi { get; set; }
-        public string Tiba { get; set; }
-        public string Transit { get; set; }
-        public decimal Harga { get; set; }
-    }
-
-    // 🔹 CLASS UNTUK MANAGER TIKET (Tetap sama)
-    public static class TiketManager
-    {
-        public static Tiket TiketDipilih { get; set; }
-        public static List<Penumpang> DaftarPenumpang { get; set; } = new List<Penumpang>();
-        public static decimal TotalHarga { get; set; }
-        public static string MetodePembayaran { get; set; }
-        public static string BuktiPembayaran { get; set; }
-    }
-
-    public class Tiket
-    {
-        public string ID { get; set; }
-        public string NamaKapal { get; set; }
-        public string Rute { get; set; }
-        public decimal Harga { get; set; }
-        public DateTime TanggalBerangkat { get; set; }
-    }
-
-    public class Penumpang
-    {
-        public string Nama { get; set; }
-        public string NIK { get; set; }
-        public string Kategori { get; set; } // Dewasa / Anak
+       
     }
 }

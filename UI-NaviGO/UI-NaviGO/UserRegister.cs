@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using Npgsql;
 
 namespace UI_NaviGO
 {
@@ -10,6 +11,16 @@ namespace UI_NaviGO
         private TextBox txtEmail;
         private TextBox txtPassword;
         private TextBox txtConfirm;
+
+        // ===== CONNECTION STRING SUPABASE =====
+        private string connString =
+        "Host=aws-1-ap-southeast-1.pooler.supabase.com;" +
+        "Port=6543;" +
+        "Username=postgres.zsktvbvfquecdmndgyrz;" +
+        "Password=agathahusna;" +
+        "Database=postgres;" +
+        "Ssl Mode=Require;" +
+        "Trust Server Certificate=true;";
 
         public UserRegister()
         {
@@ -26,7 +37,7 @@ namespace UI_NaviGO
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // ======== LEFT IMAGE PANEL ========
+            // LEFT IMAGE
             PictureBox pictureBox = new PictureBox
             {
                 Size = new Size(600, 700),
@@ -36,12 +47,11 @@ namespace UI_NaviGO
             };
             this.Controls.Add(pictureBox);
 
-            // ======== TITLE ========
+            // TITLE
             Label lblTitle = new Label
             {
                 Text = "Create Account",
                 Font = new Font("Segoe UI", 22, FontStyle.Bold),
-                ForeColor = Color.Black,
                 Location = new Point(730, 120),
                 AutoSize = true
             };
@@ -50,14 +60,14 @@ namespace UI_NaviGO
             Label lblSubtitle = new Label
             {
                 Text = "Please complete to create your account",
-                Font = new Font("Segoe UI", 10, FontStyle.Regular),
+                Font = new Font("Segoe UI", 10),
                 ForeColor = Color.Gray,
                 Location = new Point(700, 165),
                 AutoSize = true
             };
             this.Controls.Add(lblSubtitle);
 
-            // ======== NAME ========
+            // NAME
             Label lblName = new Label
             {
                 Text = "Name",
@@ -76,7 +86,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtName);
 
-            // ======== EMAIL ========
+            // EMAIL
             Label lblEmail = new Label
             {
                 Text = "Email",
@@ -95,7 +105,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtEmail);
 
-            // ======== PASSWORD ========
+            // PASSWORD
             Label lblPassword = new Label
             {
                 Text = "Password",
@@ -115,7 +125,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtPassword);
 
-            // ======== CONFIRM PASSWORD ========
+            // CONFIRM PASSWORD
             Label lblConfirm = new Label
             {
                 Text = "Confirm Password",
@@ -135,7 +145,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtConfirm);
 
-            // ======== SIGN UP BUTTON ========
+            // SIGN UP BUTTON
             Button btnSignUp = new Button
             {
                 Text = "Sign Up",
@@ -144,86 +154,81 @@ namespace UI_NaviGO
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 BackColor = Color.FromArgb(20, 150, 130),
                 ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                FlatStyle = FlatStyle.Flat
             };
             btnSignUp.FlatAppearance.BorderSize = 0;
             btnSignUp.Click += BtnSignUp_Click;
             this.Controls.Add(btnSignUp);
-
-            // ======== BACK TO LOGIN LINK ========
-            Label lblLogin = new Label
-            {
-                Text = "Already have an account?",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.Black,
-                Location = new Point(750, 590),
-                AutoSize = true
-            };
-            this.Controls.Add(lblLogin);
-
-            LinkLabel linkLogin = new LinkLabel
-            {
-                Text = "Sign In",
-                Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                LinkColor = Color.FromArgb(0, 120, 120),
-                Location = new Point(920, 590),
-                AutoSize = true,
-                LinkBehavior = LinkBehavior.NeverUnderline
-            };
-            linkLogin.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserLogin().Show();
-            };
-            this.Controls.Add(linkLogin);
         }
 
+        // REGISTER FUNCTION
         private void BtnSignUp_Click(object sender, EventArgs e)
         {
-            // Validasi input
-            if (string.IsNullOrWhiteSpace(txtName.Text) ||
-                string.IsNullOrWhiteSpace(txtEmail.Text) ||
-                string.IsNullOrWhiteSpace(txtPassword.Text) ||
-                string.IsNullOrWhiteSpace(txtConfirm.Text))
+            string name = txtName.Text.Trim();
+            string email = txtEmail.Text.Trim();
+            string password = txtPassword.Text.Trim();
+            string confirm = txtConfirm.Text.Trim();
+
+            if (string.IsNullOrEmpty(name) ||
+                string.IsNullOrEmpty(email) ||
+                string.IsNullOrEmpty(password) ||
+                string.IsNullOrEmpty(confirm))
             {
-                MessageBox.Show("Please fill in all fields.", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Please fill in all fields.",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (txtPassword.Text != txtConfirm.Text)
+            if (password != confirm)
             {
-                MessageBox.Show("Password and confirmation do not match.", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Passwords do not match.",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            if (txtPassword.Text.Length < 6)
+            try
             {
-                MessageBox.Show("Password must be at least 6 characters long.", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
+                using (var conn = new NpgsqlConnection(connString))
+                {
+                    conn.Open();
 
-            // Coba registrasi user
-            bool success = UserManager.RegisterUser(
-                txtName.Text.Trim(),
-                txtEmail.Text.Trim(),
-                txtPassword.Text
-            );
+                    // CHECK IF EMAIL EXISTS
+                    string checkQuery = "SELECT COUNT(*) FROM users WHERE email = @e";
+                    using (var checkCmd = new NpgsqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@e", email);
+                        long exists = (long)checkCmd.ExecuteScalar();
 
-            if (success)
-            {
-                MessageBox.Show("Account created successfully!", "Success",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                this.Hide();
-                new UserLogin().Show();
+                        if (exists > 0)
+                        {
+                            MessageBox.Show("Email already registered.",
+                                "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                    }
+
+                    // INSERT NEW USER
+                    string insertQuery =
+                        "INSERT INTO users (name, email, password) VALUES (@n, @e, @p)";
+                    using (var cmd = new NpgsqlCommand(insertQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@n", name);
+                        cmd.Parameters.AddWithValue("@e", email);
+                        cmd.Parameters.AddWithValue("@p", password);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    MessageBox.Show("Account created successfully!",
+                        "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                    this.Hide();
+                    new UserLogin().Show();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Email already registered. Please use a different email.", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Database connection failed:\n" + ex.Message,
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

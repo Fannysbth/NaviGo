@@ -10,30 +10,60 @@ namespace UI_NaviGO
         private Panel sidebarPanel;
         private Panel topPanel;
         private Panel contentPanelBox;
-        private ComboBox cbMetode;
-        private TextBox txtBuktiPembayaran;
-        private Button btnPesan;
-        private Label lblTotalPembayaran;
+        private Panel mainContentPanel;
 
-        public UserPembayaran()
+        private bool isEditMode;
+        private RiwayatTiket tiketEdit;
+        private decimal hargaAwal;
+
+        public UserPembayaran(bool isEditMode = false)
         {
+            this.isEditMode = isEditMode;
+            if (isEditMode)
+            {
+                this.tiketEdit = SelectedTicketData.TiketReschedule;
+                this.hargaAwal = tiketEdit.TotalHarga;
+            }
             InitializeComponent();
             BuildUI();
-            SetupEvents();
-            UpdateDisplay();
         }
 
         private void BuildUI()
         {
-            // ===== FORM SETTINGS =====
+            
+            // ========== HITUNG TOTAL HARGA ==========
+            var r = SelectedTicketData.SelectedRute;
+
+            decimal hargaDasar = r.Harga;
+            decimal hargaKelas = SelectedTicketData.HargaKelas;
+
+            // Hitung jumlah per kategori
+            int jumlahDewasa = 0, jumlahAnak = 0, jumlahBayi = 0;
+            foreach (var p in SelectedTicketData.Penumpang)
+            {
+                if (p.Kategori == "Dewasa") jumlahDewasa++;
+                else if (p.Kategori == "Anak") jumlahAnak++;
+                else if (p.Kategori == "Bayi") jumlahBayi++;
+            }
+
+            // Hitung harga per kategori
+            decimal hargaTiketDewasa = hargaDasar + hargaKelas;
+            decimal hargaTiketAnak = hargaTiketDewasa * 0.75m;
+            decimal hargaTiketBayi = hargaTiketDewasa * 0.25m;
+
+            decimal totalDewasa = hargaTiketDewasa * jumlahDewasa;
+            decimal totalAnak = hargaTiketAnak * jumlahAnak;
+            decimal totalBayi = hargaTiketBayi * jumlahBayi;
+            decimal totalKeseluruhan = totalDewasa + totalAnak + totalBayi;
+
+            // ========== FORM ==========
             this.Text = "NaviGo - Pembayaran";
             this.WindowState = FormWindowState.Maximized;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
-            this.BackColor = Color.White;
 
-            // ===== SIDEBAR =====
+            // ================== SIDEBAR ==================
             sidebarPanel = new Panel()
             {
                 BackColor = Color.FromArgb(225, 240, 240),
@@ -41,21 +71,19 @@ namespace UI_NaviGO
                 Dock = DockStyle.Left
             };
 
-            // ===== LOGO PANEL =====
+            // Logo panel
             Panel logoPanel = new Panel()
             {
                 Height = 120,
-                Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(225, 240, 240)
+                Dock = DockStyle.Top
             };
 
             PictureBox logo = new PictureBox()
             {
                 Size = new Size(60, 60),
                 Location = new Point(20, 25),
-                SizeMode = PictureBoxSizeMode.StretchImage,
-                BackColor = Color.Transparent,
-                Image = Properties.Resources.logo_navigo
+                Image = Properties.Resources.logo_navigo,
+                SizeMode = PictureBoxSizeMode.StretchImage
             };
 
             Label lblLogoTitle = new Label()
@@ -70,7 +98,7 @@ namespace UI_NaviGO
             Label lblLogoSubtitle = new Label()
             {
                 Text = "Ship Easily",
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
+                Font = new Font("Segoe UI", 9),
                 ForeColor = Color.FromArgb(0, 85, 92),
                 Location = new Point(97, 60),
                 AutoSize = true
@@ -78,7 +106,7 @@ namespace UI_NaviGO
 
             logoPanel.Controls.AddRange(new Control[] { logo, lblLogoTitle, lblLogoSubtitle });
 
-            // ===== BUTTONS =====
+            // Sidebar buttons
             Button btnJadwal = new Button()
             {
                 Text = "  Jadwal dan Rute     >",
@@ -86,12 +114,17 @@ namespace UI_NaviGO
                 Dock = DockStyle.Top,
                 Height = 45,
                 ForeColor = Color.FromArgb(0, 85, 92),
-                TextAlign = ContentAlignment.MiddleLeft,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(20, 0, 0, 0)
             };
             btnJadwal.FlatAppearance.BorderSize = 0;
+            btnJadwal.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserJadwal().Show();
+            };
 
             Button btnRiwayat = new Button()
             {
@@ -99,17 +132,22 @@ namespace UI_NaviGO
                 Dock = DockStyle.Top,
                 Height = 45,
                 ForeColor = Color.FromArgb(0, 85, 92),
-                TextAlign = ContentAlignment.MiddleLeft,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(20, 0, 0, 0),
                 BackColor = Color.White
             };
             btnRiwayat.FlatAppearance.BorderSize = 0;
+            btnRiwayat.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserHistory().Show();
+            };
 
             sidebarPanel.Controls.AddRange(new Control[] { btnRiwayat, btnJadwal, logoPanel });
 
-            // ===== TOP PANEL =====
+            // ================== TOP PANEL ==================
             topPanel = new Panel()
             {
                 BackColor = Color.Teal,
@@ -123,12 +161,12 @@ namespace UI_NaviGO
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(15, 20)
+                Location = new Point(15, 22)
             };
 
             Label lblUsername = new Label()
             {
-                Text = "Halo, Felicia Angel",
+                Text = $"Halo, {SelectedTicketData.Username}",
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 11),
                 AutoSize = true
@@ -137,25 +175,37 @@ namespace UI_NaviGO
             Button btnProfile = new Button()
             {
                 Text = "Profile",
-                BackColor = Color.White,
                 Width = 90,
                 Height = 35,
+                BackColor = Color.White,
                 Font = new Font("Segoe UI", 9),
                 FlatStyle = FlatStyle.Flat
             };
             btnProfile.FlatAppearance.BorderSize = 0;
+            btnProfile.Click += (s, e) =>
+            {
+                var p = new FormProfileUser();
+                p.Closed += (s2, e2) => this.Close();
+                p.Show();
+                this.Hide();
+            };
 
             Button btnLogout = new Button()
             {
                 Text = "Logout",
-                BackColor = Color.FromArgb(210, 80, 60),
                 Width = 90,
                 Height = 35,
+                BackColor = Color.FromArgb(210, 80, 60),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 9),
                 FlatStyle = FlatStyle.Flat
             };
             btnLogout.FlatAppearance.BorderSize = 0;
+            btnLogout.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserLogin().Show();
+            };
 
             topPanel.Resize += (s, e) =>
             {
@@ -166,319 +216,423 @@ namespace UI_NaviGO
 
             topPanel.Controls.AddRange(new Control[] { lblHeaderTitle, lblUsername, btnProfile, btnLogout });
 
-            // ===== CONTENT AREA =====
-            Panel contentPanel = new Panel()
+            // ================== MAIN CONTENT PANEL (SCROLLABLE) ==================
+            mainContentPanel = new Panel()
             {
                 Dock = DockStyle.Fill,
-                BackgroundImageLayout = ImageLayout.Stretch,
-                BackColor = Color.White
+                AutoScroll = true,
+                BackgroundImageLayout = ImageLayout.Stretch
             };
 
-            // Background dengan opacity
-            Image original = Properties.Resources.pembayaran_bg;
-            contentPanel.BackgroundImage = SetImageOpacity(original, 0.3f);
+            mainContentPanel.BackgroundImage = SetImageOpacity(Properties.Resources.pembayaran_bg, 0.3f);
 
-            // ===== WHITE BOX =====
+            // White box - diperbesar untuk menampung lebih banyak konten
             contentPanelBox = new Panel()
             {
-                Size = new Size(900, 550),
+                Size = new Size(900, 800), // Diperbesar untuk menampung kelas
                 BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(20)
             };
 
-            // ===== TITLE =====
             Label lblTitle = new Label()
             {
-                Text = "Form Pembayaran",
+                Text = "Detail Pembayaran Tiket",
                 Font = new Font("Segoe UI", 20, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(310, 30),
-                BackColor = Color.Transparent
+                Location = new Point(280, 30)
             };
             contentPanelBox.Controls.Add(lblTitle);
 
-            // ===== FORM =====
-            int x1 = 100, x2 = 500, y = 100;
+            int currentY = 80;
 
-            // Informasi Tiket
-            Label lblInfoTiket = new Label()
+            // ========== INFORMASI RUTE ==========
+            Panel panelRute = new Panel()
             {
-                Text = "Informasi Tiket:",
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Location = new Point(x1, y),
-                AutoSize = true
+                Size = new Size(800, 100),
+                Location = new Point(50, currentY),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.FromArgb(245, 245, 245)
             };
-            contentPanelBox.Controls.Add(lblInfoTiket);
 
-            if (TiketManager.TiketDipilih != null)
+            Label lblInfoRute = new Label()
             {
-                Label lblDetailTiket = new Label()
-                {
-                    Text = $"{TiketManager.TiketDipilih.NamaKapal} - {TiketManager.TiketDipilih.Rute}",
-                    Font = new Font("Segoe UI", 10),
-                    Location = new Point(x1, y + 30),
-                    AutoSize = true
-                };
-                contentPanelBox.Controls.Add(lblDetailTiket);
-
-                Label lblTanggal = new Label()
-                {
-                    Text = $"Tanggal: {TiketManager.TiketDipilih.TanggalBerangkat:dd/MM/yyyy HH:mm}",
-                    Font = new Font("Segoe UI", 10),
-                    Location = new Point(x1, y + 55),
-                    AutoSize = true
-                };
-                contentPanelBox.Controls.Add(lblTanggal);
-            }
-
-            y += 100;
-
-            // Detail Penumpang
-            Label lblPenumpang = new Label()
-            {
-                Text = "Detail Penumpang:",
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Location = new Point(x1, y),
-                AutoSize = true
-            };
-            contentPanelBox.Controls.Add(lblPenumpang);
-
-            int penumpangY = y + 30;
-            foreach (var penumpang in TiketManager.DaftarPenumpang)
-            {
-                Label lblPenumpangDetail = new Label()
-                {
-                    Text = $"{penumpang.Nama} ({penumpang.Kategori}) - NIK: {penumpang.NIK}",
-                    Font = new Font("Segoe UI", 10),
-                    Location = new Point(x1, penumpangY),
-                    AutoSize = true
-                };
-                contentPanelBox.Controls.Add(lblPenumpangDetail);
-                penumpangY += 25;
-            }
-
-            y = penumpangY + 20;
-
-            // Informasi Pembayaran
-            Label lblHargaTiket = new Label()
-            {
-                Text = $"Harga per tiket: {(TiketManager.TiketDipilih?.Harga.ToString("C0") ?? "Rp 0")}",
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(x1, y),
-                AutoSize = true
-            };
-            contentPanelBox.Controls.Add(lblHargaTiket);
-
-            Label lblJumlahPenumpang = new Label()
-            {
-                Text = $"Jumlah penumpang: {TiketManager.DaftarPenumpang.Count} orang",
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(x1, y + 25),
-                AutoSize = true
-            };
-            contentPanelBox.Controls.Add(lblJumlahPenumpang);
-
-            lblTotalPembayaran = new Label()
-            {
-                Text = $"Total Pembayaran: {TiketManager.TotalHarga.ToString("C0")}",
+                Text = "Informasi Perjalanan",
                 Font = new Font("Segoe UI", 12, FontStyle.Bold),
                 ForeColor = Color.FromArgb(0, 85, 92),
-                Location = new Point(x1, y + 55),
+                Location = new Point(20, 10),
                 AutoSize = true
             };
-            contentPanelBox.Controls.Add(lblTotalPembayaran);
 
-            // Metode Pembayaran
+            Label lblRuteDetail = new Label()
+            {
+                Text = $"Rute: {r.Rute}",
+                Font = new Font("Segoe UI", 10),
+                Location = new Point(20, 35),
+                AutoSize = true
+            };
+
+            Label lblKapalDetail = new Label()
+            {
+                Text = $"Kapal: {r.Kapal} | ID: {r.ID}",
+                Font = new Font("Segoe UI", 10),
+                Location = new Point(20, 55),
+                AutoSize = true
+            };
+
+            Label lblTanggalDetail = new Label()
+            {
+                Text = $"Tanggal: {r.Tanggal:dd MMMM yyyy} | {r.JamBerangkat} - {r.JamTiba}",
+                Font = new Font("Segoe UI", 10),
+                Location = new Point(20, 75),
+                AutoSize = true
+            };
+
+            panelRute.Controls.AddRange(new Control[] { lblInfoRute, lblRuteDetail, lblKapalDetail, lblTanggalDetail });
+            contentPanelBox.Controls.Add(panelRute);
+
+            currentY += 120;
+
+            // ========== PILIHAN KELAS ==========
+            Label lblPilihKelas = new Label()
+            {
+                Text = "Pilih Kelas",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(50, currentY),
+                AutoSize = true
+            };
+
+            ComboBox cbKelas = new ComboBox()
+            {
+                Location = new Point(150, currentY),
+                Width = 200,
+                Font = new Font("Segoe UI", 10)
+            };
+            cbKelas.Items.AddRange(new string[] { "Ekonomi", "Bisnis", "VIP" });
+
+            // Set kelas yang sudah dipilih sebelumnya jika ada
+            if (!string.IsNullOrEmpty(SelectedTicketData.KelasDipilih))
+                cbKelas.Text = SelectedTicketData.KelasDipilih;
+            else
+                cbKelas.SelectedIndex = 0;
+
+            contentPanelBox.Controls.AddRange(new Control[] { lblPilihKelas, cbKelas });
+
+            currentY += 50;
+
+            // ========== DETAIL HARGA ==========
+            Label lblDetailHarga = new Label()
+            {
+                Text = "Detail Harga",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(50, currentY),
+                AutoSize = true
+            };
+            contentPanelBox.Controls.Add(lblDetailHarga);
+
+            currentY += 40;
+
+            int labelWidth = 150;
+            int textBoxWidth = 120;
+            int totalWidth = 100;
+
+            // Header tabel
+            Label lblHeaderKategori = new Label()
+            {
+                Text = "Kategori",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Location = new Point(50, currentY),
+                Size = new Size(labelWidth, 25)
+            };
+
+            Label lblHeaderJumlah = new Label()
+            {
+                Text = "Jumlah",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Location = new Point(220, currentY),
+                Size = new Size(textBoxWidth, 25)
+            };
+
+            Label lblHeaderHarga = new Label()
+            {
+                Text = "Harga Tiket",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Location = new Point(360, currentY),
+                Size = new Size(textBoxWidth, 25)
+            };
+
+            Label lblHeaderTotal = new Label()
+            {
+                Text = "Total Harga",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Location = new Point(500, currentY),
+                Size = new Size(totalWidth, 25)
+            };
+
+            contentPanelBox.Controls.AddRange(new Control[] { lblHeaderKategori, lblHeaderJumlah, lblHeaderHarga, lblHeaderTotal });
+
+            // DEWASA
+            currentY += 40;
+            TextBox txtJumlahDewasa = new TextBox() { Text = jumlahDewasa.ToString(), Location = new Point(220, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Center };
+            TextBox txtHargaDewasa = new TextBox() { Text = $"Rp {hargaTiketDewasa:N0}", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
+            TextBox txtTotalDewasa = new TextBox() { Text = $"Rp {totalDewasa:N0}", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+
+            contentPanelBox.Controls.AddRange(new Control[] {
+                new Label() { Text = "Dewasa", Font = new Font("Segoe UI", 10), Location = new Point(50, currentY), Size = new Size(labelWidth, 25) },
+                txtJumlahDewasa, txtHargaDewasa, txtTotalDewasa
+            });
+
+            // ANAK
+            currentY += 40;
+            TextBox txtJumlahAnak = new TextBox() { Text = jumlahAnak.ToString(), Location = new Point(220, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Center };
+            TextBox txtHargaAnak = new TextBox() { Text = $"Rp {hargaTiketAnak:N0}", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
+            TextBox txtTotalAnak = new TextBox() { Text = $"Rp {totalAnak:N0}", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+
+            contentPanelBox.Controls.AddRange(new Control[] {
+                new Label() { Text = "Anak-Anak", Font = new Font("Segoe UI", 10), Location = new Point(50, currentY), Size = new Size(labelWidth, 25) },
+                txtJumlahAnak, txtHargaAnak, txtTotalAnak
+            });
+
+            // BAYI
+            currentY += 40;
+            TextBox txtJumlahBayi = new TextBox() { Text = jumlahBayi.ToString(), Location = new Point(220, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Center };
+            TextBox txtHargaBayi = new TextBox() { Text = $"Rp {hargaTiketBayi:N0}", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
+            TextBox txtTotalBayi = new TextBox() { Text = $"Rp {totalBayi:N0}", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+
+            contentPanelBox.Controls.AddRange(new Control[] {
+                new Label() { Text = "Bayi", Font = new Font("Segoe UI", 10), Location = new Point(50, currentY), Size = new Size(labelWidth, 25) },
+                txtJumlahBayi, txtHargaBayi, txtTotalBayi
+            });
+
+            // Garis pemisah
+            currentY += 50;
+            Panel garisPemisah = new Panel()
+            {
+                BackColor = Color.LightGray,
+                Location = new Point(50, currentY),
+                Size = new Size(650, 1)
+            };
+            contentPanelBox.Controls.Add(garisPemisah);
+
+            // TOTAL KESELURUHAN
+            currentY += 20;
+            TextBox txtTotalKeseluruhan = new TextBox()
+            {
+                Text = $"Rp {totalKeseluruhan:N0}",
+                Location = new Point(500, currentY),
+                Size = new Size(150, 30),
+                ReadOnly = true,
+                TextAlign = HorizontalAlignment.Right,
+                BackColor = Color.FromArgb(255, 255, 200),
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                ForeColor = Color.DarkRed
+            };
+
+            contentPanelBox.Controls.AddRange(new Control[] {
+                new Label() { Text = "TOTAL PEMBAYARAN", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.FromArgb(0, 85, 92), Location = new Point(50, currentY), Size = new Size(200, 30) },
+                txtTotalKeseluruhan
+            });
+
+            currentY += 60;
+
+            // ========== METODE PEMBAYARAN ==========
             Label lblMetode = new Label()
             {
                 Text = "Metode Pembayaran",
-                Location = new Point(x2, y),
-                Font = new Font("Segoe UI", 10, FontStyle.Bold)
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(50, currentY),
+                Size = new Size(200, 25)
             };
-            contentPanelBox.Controls.Add(lblMetode);
 
-            cbMetode = new ComboBox()
+            ComboBox cmbMetodePembayaran = new ComboBox()
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Size = new Size(200, 25),
-                Location = new Point(x2, y + 25),
+                Location = new Point(250, currentY),
+                Size = new Size(250, 25),
                 Font = new Font("Segoe UI", 10)
             };
-            cbMetode.Items.AddRange(new string[] { "Transfer Bank BCA", "Transfer Bank BRI", "Kartu Kredit", "Dana", "OVO", "Gopay" });
-            contentPanelBox.Controls.Add(cbMetode);
+            cmbMetodePembayaran.Items.AddRange(new string[] {
+                "Transfer Bank BCA",
+                "Transfer Bank BRI",
+                "Transfer Bank Mandiri",
+                "Kartu Kredit",
+                "E-Wallet (Gopay, OVO, Dana)",
+                "Bayar di Tempat"
+            });
+            cmbMetodePembayaran.SelectedIndex = 0;
 
-            // Bukti Pembayaran
-            Label lblBukti = new Label()
+            contentPanelBox.Controls.AddRange(new Control[] { lblMetode, cmbMetodePembayaran });
+
+            currentY += 60;
+
+            // ========== KETERANGAN ==========
+            Label lblKeterangan = new Label()
             {
-                Text = "No. Referensi/Transaksi",
-                Location = new Point(x2, y + 65),
-                Font = new Font("Segoe UI", 10)
+                Text = "Keterangan:",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Location = new Point(50, currentY),
+                AutoSize = true
             };
-            contentPanelBox.Controls.Add(lblBukti);
 
-            txtBuktiPembayaran = new TextBox()
+            currentY += 25;
+            Label lblKet1 = new Label()
             {
-                Size = new Size(200, 25),
-                Location = new Point(x2, y + 90),
-                Font = new Font("Segoe UI", 10)
+                Text = "• Harga anak-anak (3-12 tahun): 75% dari harga dewasa",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.Gray,
+                Location = new Point(70, currentY),
+                AutoSize = true
             };
-            // Setup placeholder manual
-            SetupTextBoxPlaceholder(txtBuktiPembayaran, "Contoh: TRX123456789");
-            contentPanelBox.Controls.Add(txtBuktiPembayaran);
 
-            btnPesan = new Button()
+            currentY += 20;
+            Label lblKet2 = new Label()
             {
-                Text = "Konfirmasi Pembayaran",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Text = "• Harga bayi (0-2 tahun): 25% dari harga dewasa",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.Gray,
+                Location = new Point(70, currentY),
+                AutoSize = true
+            };
+
+            currentY += 20;
+            Label lblKet3 = new Label()
+            {
+                Text = "• Tiket akan dikirim ke email setelah pembayaran dikonfirmasi",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.Gray,
+                Location = new Point(70, currentY),
+                AutoSize = true
+            };
+
+            contentPanelBox.Controls.AddRange(new Control[] { lblKeterangan, lblKet1, lblKet2, lblKet3 });
+
+            // ================== CONFIRM BUTTON ==================
+            Button btnPesan = new Button()
+            {
+                Text = "KONFIRMASI PEMBAYARAN",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
                 BackColor = Color.FromArgb(255, 204, 153),
                 ForeColor = Color.FromArgb(0, 102, 102),
-                Size = new Size(250, 50),
-                Location = new Point((contentPanelBox.Width - 250) / 2, y + 140),
+                Size = new Size(300, 50),
+                Location = new Point((contentPanelBox.Width - 300) / 2, currentY + 50),
                 FlatStyle = FlatStyle.Flat
             };
             btnPesan.FlatAppearance.BorderSize = 0;
+            btnPesan.Click += (s, e) =>
+            {
+                if (cmbMetodePembayaran.SelectedItem == null)
+                {
+                    MessageBox.Show("Pilih metode pembayaran terlebih dahulu!", "Peringatan",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Hitung ulang harga berdasarkan kelas terpilih
+                decimal tambahan = 0;
+                if (cbKelas.Text == "Bisnis") tambahan = 50000;
+                else if (cbKelas.Text == "VIP") tambahan = 120000;
+                decimal newHargaDewasa = hargaDasar + tambahan;
+                decimal newHargaAnak = newHargaDewasa * 0.75m;
+                decimal newHargaBayi = newHargaDewasa * 0.25m;
+
+                decimal newTotalDewasa = newHargaDewasa * jumlahDewasa;
+                decimal newTotalAnak = newHargaAnak * jumlahAnak;
+                decimal newTotalBayi = newHargaBayi * jumlahBayi;
+                decimal newTotalKeseluruhan = newTotalDewasa + newTotalAnak + newTotalBayi;
+
+                // Simpan data kelas yang dipilih
+                SelectedTicketData.KelasDipilih = cbKelas.Text;
+                SelectedTicketData.HargaKelas = tambahan;
+                
+                string metodePembayaran = cmbMetodePembayaran.SelectedItem.ToString();
+                SelectedTicketData.MetodePembayaran = metodePembayaran;
+
+
+                DialogResult result = MessageBox.Show(
+                    $"Konfirmasi pembayaran sebesar Rp {newTotalKeseluruhan:N0} via {metodePembayaran}?",
+                    "Konfirmasi Pembayaran",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                
+
+                if (result == DialogResult.Yes)
+                {
+                    this.Hide();
+                    new UserSuccess().Show();
+                }
+            };
+
+
             contentPanelBox.Controls.Add(btnPesan);
 
-            // ===== ADD PANELS TO FORM =====
-            contentPanel.Controls.Add(contentPanelBox);
-            this.Controls.Add(contentPanel);
+            // Event handler untuk perubahan kelas
+            cbKelas.SelectedIndexChanged += (s, e) =>
+            {
+                // Hitung ulang harga berdasarkan kelas
+                decimal tambahan = 0;
+                if (cbKelas.Text == "Bisnis") tambahan = 50000;
+                else if (cbKelas.Text == "VIP") tambahan = 120000;
+
+                decimal newHargaDewasa = hargaDasar + tambahan;
+                decimal newHargaAnak = newHargaDewasa * 0.75m;
+                decimal newHargaBayi = newHargaDewasa * 0.25m;
+
+                decimal newTotalDewasa = newHargaDewasa * jumlahDewasa;
+                decimal newTotalAnak = newHargaAnak * jumlahAnak;
+                decimal newTotalBayi = newHargaBayi * jumlahBayi;
+                decimal newTotalKeseluruhan = newTotalDewasa + newTotalAnak + newTotalBayi;
+
+                // Update tampilan
+                txtHargaDewasa.Text = $"Rp {newHargaDewasa:N0}";
+                txtTotalDewasa.Text = $"Rp {newTotalDewasa:N0}";
+                txtHargaAnak.Text = $"Rp {newHargaAnak:N0}";
+                txtTotalAnak.Text = $"Rp {newTotalAnak:N0}";
+                txtHargaBayi.Text = $"Rp {newHargaBayi:N0}";
+                txtTotalBayi.Text = $"Rp {newTotalBayi:N0}";
+                txtTotalKeseluruhan.Text = $"Rp {newTotalKeseluruhan:N0}";
+            };
+
+            mainContentPanel.Controls.Add(contentPanelBox);
+            this.Controls.Add(mainContentPanel);
             this.Controls.Add(topPanel);
             this.Controls.Add(sidebarPanel);
 
-            // ===== CENTER BOX =====
-            contentPanel.Resize += (s, e) =>
+            mainContentPanel.Resize += (s, e) =>
             {
                 contentPanelBox.Location = new Point(
-                    (contentPanel.Width - contentPanelBox.Width) / 2,
-                    (contentPanel.Height - contentPanelBox.Height) / 2
+                    (mainContentPanel.ClientSize.Width - contentPanelBox.Width) / 2,
+                    Math.Max(20, (mainContentPanel.ClientSize.Height - contentPanelBox.Height) / 2)
                 );
             };
-        }
 
-        private void SetupTextBoxPlaceholder(TextBox textBox, string placeholder)
-        {
-            textBox.Text = placeholder;
-            textBox.ForeColor = Color.Gray;
-
-            textBox.Enter += (s, e) =>
+            // Jika mode edit, tampilkan informasi harga sebelumnya
+            if (isEditMode)
             {
-                if (textBox.Text == placeholder)
+                Label lblHargaAwal = new Label()
                 {
-                    textBox.Text = "";
-                    textBox.ForeColor = Color.Black;
-                }
-            };
+                    Text = $"Harga Sebelumnya: {hargaAwal.ToString("C0")}",
+                    Font = new Font("Segoe UI", 10, FontStyle.Italic),
+                    ForeColor = Color.Gray,
+                    Location = new Point(50, currentY),
+                    AutoSize = true
+                };
+                contentPanelBox.Controls.Add(lblHargaAwal);
+                currentY += 30;
 
-            textBox.Leave += (s, e) =>
-            {
-                if (string.IsNullOrWhiteSpace(textBox.Text))
+                // Tambahkan label peringatan
+                Label lblPeringatan = new Label()
                 {
-                    textBox.Text = placeholder;
-                    textBox.ForeColor = Color.Gray;
-                }
-            };
-        }
-
-        private void SetupEvents()
-        {
-            // Event tombol sidebar
-            var buttons = sidebarPanel.Controls;
-            ((Button)buttons[1]).Click += (s, e) => { this.Hide(); new UserJadwal().Show(); };
-            ((Button)buttons[2]).Click += (s, e) => { this.Hide(); new UserHistory().Show(); };
-
-            // Event tombol header
-            var topButtons = topPanel.Controls;
-            ((Button)topButtons[2]).Click += (s, e) => { this.Hide(); new FormProfileUser().Show(); };
-            ((Button)topButtons[3]).Click += (s, e) =>
-            {
-                if (MessageBox.Show("Yakin ingin logout?", "Konfirmasi",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    this.Hide();
-                    new UserLogin().Show();
-                }
-            };
-
-            // Event tombol pesan
-            btnPesan.Click += (s, e) =>
-            {
-                if (ValidateForm())
-                {
-                    ProsesPembayaran();
-                }
-            };
-
-            // Event perubahan metode pembayaran
-            cbMetode.SelectedIndexChanged += (s, e) => UpdateDisplay();
-        }
-
-        private void UpdateDisplay()
-        {
-            // Update tampilan berdasarkan data terkini
-            lblTotalPembayaran.Text = $"Total Pembayaran: {TiketManager.TotalHarga.ToString("C0")}";
-        }
-
-        private bool ValidateForm()
-        {
-            if (cbMetode.SelectedIndex == -1)
-            {
-                MessageBox.Show("Harap pilih metode pembayaran", "Peringatan",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                cbMetode.Focus();
-                return false;
+                    Text = "Catatan: Jika harga baru lebih rendah, selisih tidak dapat dikembalikan. " +
+                          "Jika harga baru lebih tinggi, Anda perlu membayar selisihnya.",
+                    Font = new Font("Segoe UI", 9),
+                    ForeColor = Color.OrangeRed,
+                    Location = new Point(50, currentY),
+                    Size = new Size(800, 40),
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+                contentPanelBox.Controls.Add(lblPeringatan);
+                currentY += 50;
             }
-
-            if (string.IsNullOrWhiteSpace(txtBuktiPembayaran.Text) || txtBuktiPembayaran.Text == "Contoh: TRX123456789")
-            {
-                MessageBox.Show("Harap isi nomor referensi/transaksi", "Peringatan",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtBuktiPembayaran.Focus();
-                return false;
-            }
-
-            return true;
-        }
-
-        private void ProsesPembayaran()
-        {
-            try
-            {
-                // Simpan data pembayaran
-                TiketManager.MetodePembayaran = cbMetode.SelectedItem.ToString();
-                TiketManager.BuktiPembayaran = txtBuktiPembayaran.Text;
-
-                // Simulasi proses pembayaran
-                MessageBox.Show("Pembayaran berhasil diproses!\n" +
-                              $"Metode: {TiketManager.MetodePembayaran}\n" +
-                              $"Total: {TiketManager.TotalHarga.ToString("C0")}\n" +
-                              "Tiket akan dikirim ke email Anda.",
-                              "Pembayaran Berhasil",
-                              MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // Simpan ke database (simulasi)
-                SimpanKeDatabase();
-
-                // Pindah ke halaman sukses
-                this.Hide();
-                new UserSuccess().Show();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Terjadi kesalahan: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void SimpanKeDatabase()
-        {
-            // Simulasi penyimpanan ke database
-            // Dalam implementasi nyata, ini akan menyimpan ke PostgreSQL
-            Console.WriteLine($"Menyimpan tiket ke database:");
-            Console.WriteLine($"- Kapal: {TiketManager.TiketDipilih?.NamaKapal}");
-            Console.WriteLine($"- Rute: {TiketManager.TiketDipilih?.Rute}");
-            Console.WriteLine($"- Total Harga: {TiketManager.TotalHarga}");
-            Console.WriteLine($"- Jumlah Penumpang: {TiketManager.DaftarPenumpang.Count}");
-            Console.WriteLine($"- Metode Bayar: {TiketManager.MetodePembayaran}");
         }
 
         private Image SetImageOpacity(Image image, float opacity)
@@ -489,12 +643,9 @@ namespace UI_NaviGO
                 ColorMatrix matrix = new ColorMatrix();
                 matrix.Matrix33 = opacity;
                 ImageAttributes attributes = new ImageAttributes();
-                attributes.SetColorMatrix(matrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
-                g.DrawImage(image,
-                    new Rectangle(0, 0, bmp.Width, bmp.Height),
-                    0, 0, image.Width, image.Height,
-                    GraphicsUnit.Pixel,
-                    attributes);
+                attributes.SetColorMatrix(matrix);
+                g.DrawImage(image, new Rectangle(0, 0, bmp.Width, bmp.Height),
+                    0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
             }
             return bmp;
         }
