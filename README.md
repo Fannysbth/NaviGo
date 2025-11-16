@@ -31,5 +31,17 @@ Berikut adalah gambar ERD database hasil pengembangan:
 
 <img src="./NaviGo ERD.png" alt="Class Diagram" width="600"/>
 
+# Instalasi Aplikasi
+1.	Unduh dan ekstrak file NaviGO.zip
+2.	Klik dua kali NaviGo.exe.
+3.	Buka Folder NaviGo
+4.	Klik dua kali NaviGO.exe (jalankan aplikasi)
+5.	Tunggu hingga jendela utama muncul.
+6.	Jika muncul peringatan keamanan Windows, klik More Info → Run Anyway.
+7.	Halaman Login akan terbuka.
+8.	Masukkan Akun demo berikut.
+Email: sarikusuma@gmail.com
+Password: sari123
+9.	Eksplore Aplikasi NaviGo
 
 
