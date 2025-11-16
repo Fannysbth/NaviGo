@@ -33,6 +33,7 @@ Berikut adalah gambar ERD database hasil pengembangan:
 
 # Instalasi Aplikasi
 1.	Unduh dan ekstrak file NaviGO.zip
+[Download NaviGo.zip](https://github.com/Fannysbth/NaviGo/blob/main/NaviGo.zip)
 2.	Klik dua kali NaviGo.exe.
 3.	Buka Folder NaviGo
 4.	Klik dua kali NaviGO.exe (jalankan aplikasi)
