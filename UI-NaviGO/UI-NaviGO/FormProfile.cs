@@ -1,5 +1,8 @@
-﻿using System;
+﻿using Npgsql;
+using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -8,88 +11,84 @@ namespace UI_NaviGO
 {
     public partial class FormProfileUser : Form
     {
-        private UserProfile currentUser;
-        private bool isEditMode = false;
-
-        private Panel sidebar;
-        private Panel topHeader;
-        private Panel contentPanel;
-        private Panel contentBox;
-
+        private List<TextBox> inputFields = new List<TextBox>();
+        private Button btnSave;
         private PictureBox profilePic;
-        private Label lblEdit;
-        private TextBox txtNama, txtEmail, txtTelepon, txtPassword;
-        private Button btnSave, btnCancel;
-        private Label lblHalo;
+        private Label btnEdit;
+        private List<PictureBox> avatarChoices = new List<PictureBox>();
+        private bool isEditMode = false;
+        private Panel avatarPanel;
 
-        private Image SetImageOpacity(Image image, float opacity)
-        {
-            Bitmap bmp = new Bitmap(image.Width, image.Height);
-            using (Graphics g = Graphics.FromImage(bmp))
-            {
-                ColorMatrix matrix = new ColorMatrix();
-                matrix.Matrix33 = opacity;
-                ImageAttributes attributes = new ImageAttributes();
-                attributes.SetColorMatrix(matrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
-                g.DrawImage(image, new Rectangle(0, 0, bmp.Width, bmp.Height),
-                    0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
-            }
-            return bmp;
-        }
+        private string connString =
+            "Host=aws-1-ap-southeast-1.pooler.supabase.com;" +
+            "Port=5432;" +
+            "Username=postgres.zsktvbvfquecdmndgyrz;" +
+            "Password=agathahusna;" +
+            "Database=postgres;" +
+            "Ssl Mode=Require;" +
+            "Trust Server Certificate=true;" +
+            "Pooling=true;" +
+            "Timeout=30;";
 
         public FormProfileUser()
         {
             InitializeComponent();
-            InitializeUserData();
             BuildUI();
-            SetupEvents();
+            this.Opacity = 1;
+            this.FormClosed += (s, e) => Application.Exit();
         }
 
-        private void InitializeUserData()
+        private async void SwitchTo(Form nextForm)
         {
-            currentUser = new UserProfile
+            for (double i = 1.0; i >= 0; i -= 0.1)
             {
-                Nama = "Felicia Angel",
-                Email = "test@example.com",
-                Telepon = "+62 812-3456-7890",
-                Password = "password123",
-                FotoProfil = null
-            };
+                this.Opacity = i;
+                await Task.Delay(25);
+            }
+
+            nextForm.Show();
+            this.Hide();
+
+            for (double i = 0; i <= 1; i += 0.1)
+            {
+                nextForm.Opacity = i;
+                await Task.Delay(25);
+            }
         }
 
         private void BuildUI()
         {
-            this.Text = "NaviGO - Profil";
+            // ========== FORM ==========
+            this.Text = "NaviGo - Profile";
             this.WindowState = FormWindowState.Maximized;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // SIDEBAR
-            sidebar = new Panel()
+            // ================== SIDEBAR ==================
+            Panel sidebarPanel = new Panel()
             {
                 BackColor = Color.FromArgb(225, 240, 240),
                 Width = 250,
                 Dock = DockStyle.Left
             };
 
+            // Logo panel
             Panel logoPanel = new Panel()
             {
                 Height = 120,
-                Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(200, 230, 225)
+                Dock = DockStyle.Top
             };
 
             PictureBox logo = new PictureBox()
             {
                 Size = new Size(60, 60),
                 Location = new Point(20, 25),
-                SizeMode = PictureBoxSizeMode.StretchImage,
-                BackColor = Color.Transparent,
-                Image = Properties.Resources.logo_navigo
+                Image = Properties.Resources.logo_navigo,
+                SizeMode = PictureBoxSizeMode.StretchImage
             };
 
-            Label lblSidebarTitle = new Label()
+            Label lblLogoTitle = new Label()
             {
                 Text = "NaviGO",
                 Font = new Font("Segoe UI", 14, FontStyle.Bold),
@@ -107,33 +106,16 @@ namespace UI_NaviGO
                 AutoSize = true
             };
 
-            logoPanel.Controls.AddRange(new Control[] { logo, lblSidebarTitle, lblLogoSubtitle });
+            logoPanel.Controls.AddRange(new Control[] { logo, lblLogoTitle, lblLogoSubtitle });
 
-
-            Button btnRiwayat = new Button()
-            {
-                Text = "  Riwayat Pemesanan",
-                Dock = DockStyle.Top,
-                Height = 50,
-                BackColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(20, 0, 0, 0)
-            };
-            btnRiwayat.FlatAppearance.BorderSize = 0;
-            btnRiwayat.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserHistory().Show();
-            };
-
+            // Sidebar buttons
             Button btnJadwal = new Button()
             {
                 Text = "  Jadwal dan Rute",
-                Dock = DockStyle.Top,
-                Height = 50,
                 BackColor = Color.White,
+                Dock = DockStyle.Top,
+                Height = 45,
+                ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 10),
                 TextAlign = ContentAlignment.MiddleLeft,
@@ -146,19 +128,31 @@ namespace UI_NaviGO
                 new UserJadwal().Show();
             };
 
-            // Hover effects
-            foreach (Button btn in new[] { btnJadwal, btnRiwayat })
+            Button btnRiwayat = new Button()
             {
-                btn.MouseEnter += (s, e) => btn.BackColor = Color.FromArgb(240, 240, 240);
-                btn.MouseLeave += (s, e) => btn.BackColor = Color.White;
-            }
-
-            sidebar.Controls.AddRange(new Control[] {  btnRiwayat, btnJadwal, logoPanel });
-
-            // TOP HEADER
-            topHeader = new Panel()
+                Text = "Riwayat Pemesanan",
+                Dock = DockStyle.Top,
+                Height = 45,
+                ForeColor = Color.FromArgb(0, 85, 92),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(20, 0, 0, 0),
+                BackColor = Color.White
+            };
+            btnRiwayat.FlatAppearance.BorderSize = 0;
+            btnRiwayat.Click += (s, e) =>
             {
-                BackColor = Color.FromArgb(0, 85, 92),
+                this.Hide();
+                new UserHistory().Show();
+            };
+
+            sidebarPanel.Controls.AddRange(new Control[] { btnRiwayat, btnJadwal, logoPanel });
+
+            // ================== TOP PANEL ==================
+            Panel topPanel = new Panel()
+            {
+                BackColor = Color.Teal,
                 Height = 70,
                 Dock = DockStyle.Top
             };
@@ -167,39 +161,43 @@ namespace UI_NaviGO
             {
                 Text = "Profil Saya",
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(280, 25)
+                Location = new Point(15, 22)
             };
 
-            lblHalo = new Label()
+            Label lblUsername = new Label()
             {
-                Text = $"Halo, {currentUser.Nama}",
-                ForeColor = Color.White,
+                Text = "Halo, " + UserSession.Name,
                 Font = new Font("Segoe UI", 10),
+                ForeColor = Color.White,
                 AutoSize = true
             };
 
             Button btnProfile = new Button()
             {
-                Text = "Profil",
-                BackColor = Color.FromArgb(0, 85, 92),
-                ForeColor = Color.White,
-                Width = 80,
+                Text = "Profile",
+                Width = 90,
                 Height = 35,
+                BackColor = Color.White,
                 Font = new Font("Segoe UI", 9),
                 FlatStyle = FlatStyle.Flat
             };
-            btnProfile.FlatAppearance.BorderSize = 1;
-            btnProfile.FlatAppearance.BorderColor = Color.White;
-
+            btnProfile.FlatAppearance.BorderSize = 0;
+            btnProfile.Click += (s, e) =>
+            {
+                var p = new FormProfileUser();
+                p.Closed += (s2, e2) => this.Close();
+                p.Show();
+                this.Hide();
+            };
 
             Button btnLogout = new Button()
             {
                 Text = "Logout",
-                BackColor = Color.FromArgb(210, 80, 60),
-                Width = 80,
+                Width = 90,
                 Height = 35,
+                BackColor = Color.FromArgb(210, 80, 60),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 9),
                 FlatStyle = FlatStyle.Flat
@@ -211,373 +209,406 @@ namespace UI_NaviGO
                 new UserLogin().Show();
             };
 
-            // Position controls in topHeader
-            topHeader.Controls.Add(lblHeaderTitle);
-            topHeader.Controls.Add(lblHalo);
-            topHeader.Controls.Add(btnProfile);
-            topHeader.Controls.Add(btnLogout);
-
-            topHeader.Resize += (s, e) =>
+            topPanel.Resize += (s, e) =>
             {
-                btnLogout.Location = new Point(topHeader.Width - 100, 18);
-                btnProfile.Location = new Point(topHeader.Width - 190, 18);
-                lblHalo.Location = new Point(topHeader.Width - 300, 25);
+                btnLogout.Location = new Point(topPanel.Width - 110, 18);
+                btnProfile.Location = new Point(topPanel.Width - 210, 18);
+                lblUsername.Location = new Point(topPanel.Width - 350, 22);
             };
 
-            // CONTENT PANEL
-            contentPanel = new Panel()
+            topPanel.Controls.AddRange(new Control[] { lblHeaderTitle, lblUsername, btnProfile, btnLogout });
+
+            // CONTENT
+            Panel content = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackgroundImageLayout = ImageLayout.Stretch,
                 BackColor = Color.White
             };
 
-            contentPanel.BackgroundImage = SetImageOpacity(Properties.Resources.tiket_bg, 0.3f);
+            content.BackgroundImage = SetImageOpacity(Properties.Resources.tiket_bg, 0.3f);
 
-            contentBox = new Panel()
+            Panel contentBox = new Panel()
             {
-                Size = new Size(900, 480),
+                Size = new Size(900, 550),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            contentPanel.Controls.Add(contentBox);
-            contentPanel.Resize += (s, e) =>
+            content.Controls.Add(contentBox);
+
+            content.Resize += (s, e) =>
             {
                 contentBox.Location = new Point(
-                    (contentPanel.Width - contentBox.Width) / 2,
-                    (contentPanel.Height - contentBox.Height) / 2
+                    (content.Width - contentBox.Width) / 2,
+                    (content.Height - contentBox.Height) / 2
                 );
             };
 
-            // FOTO PROFIL
-            profilePic = new PictureBox()
+            this.Controls.Add(content);
+            this.Controls.Add(topPanel);
+            this.Controls.Add(sidebarPanel);
+            content.BringToFront();
+
+            // Header
+            Label lblheader = new Label()
             {
-                Size = new Size(120, 120),
-                Location = new Point(50, 30),
-                BackColor = Color.FromArgb(245, 245, 245),
-                SizeMode = PictureBoxSizeMode.Zoom,
-                Cursor = Cursors.Hand,
-                BorderStyle = BorderStyle.None
+                Text = "Welcome To Navigo!!",
+                ForeColor = Color.Black,
+                Font = new Font("Segoe UI", 20, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point((contentBox.Width - 250) / 2, 30)
             };
+            contentBox.Controls.Add(lblheader);
 
-            var gp = new System.Drawing.Drawing2D.GraphicsPath();
-            gp.AddEllipse(0, 0, profilePic.Width, profilePic.Height);
-            profilePic.Region = new Region(gp);
-
-            profilePic.Paint += (s, e) =>
+            // Profile Picture
+            profilePic = new PictureBox
             {
-                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (Pen p = new Pen(Color.FromArgb(0, 85, 92), 2))
-                    e.Graphics.DrawEllipse(p, 1, 1, profilePic.Width - 3, profilePic.Height - 3);
+                Size = new Size(130, 130),
+                Location = new Point((contentBox.Width - 130) / 2, 80),
+                BackColor = Color.FromArgb(210, 240, 240),
+                SizeMode = PictureBoxSizeMode.StretchImage,
+                BorderStyle = BorderStyle.FixedSingle
             };
-
-            SetDefaultProfilePicture();
+            MakeCircle(profilePic);
             contentBox.Controls.Add(profilePic);
 
-            // Label edit
-            lblEdit = new Label()
+            // Edit Label
+            btnEdit = new Label
             {
-                Text = "✎ Edit Profil",
+                Text = "✎ Edit",
+                ForeColor = Color.FromArgb(240, 90, 50),
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 85, 92),
                 Cursor = Cursors.Hand,
                 AutoSize = true,
-                Location = new Point(50, 160)
+                Location = new Point(contentBox.Width - 220, 250)
             };
-            contentBox.Controls.Add(lblEdit);
+            contentBox.Controls.Add(btnEdit);
+            btnEdit.Click += BtnEdit_Click;
 
-            // INPUT FIELDS - Layout lebih rapi seperti di gambar
-            int leftLabel = 300;
-            int leftField = 300;
-            int startY = 30;
-            int spacing = 60;
-
-            // Nama Lengkap
-            Label lblNama = new Label()
+            // Avatar Selection Panel (hidden by default)
+            avatarPanel = new Panel()
             {
-                Text = "Nama Lengkap",
-                Location = new Point(leftLabel, startY),
-                Font = new Font("Segoe UI", 10),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(80, 80, 80)
-            };
-            contentBox.Controls.Add(lblNama);
-
-            txtNama = new TextBox()
-            {
-                Size = new Size(400, 35),
-                Location = new Point(leftField, startY + 25),
-                Text = currentUser.Nama,
-                ReadOnly = true,
-                BackColor = Color.FromArgb(250, 250, 250),
+                Size = new Size(330, 80),
+                Location = new Point((contentBox.Width - 300) / 2, 220),
+                BackColor = Color.FromArgb(245, 245, 245),
                 BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 10)
+                Visible = false
             };
-            contentBox.Controls.Add(txtNama);
+            contentBox.Controls.Add(avatarPanel);
 
-            // Email
-            Label lblEmail = new Label()
-            {
-                Text = "Email",
-                Location = new Point(leftLabel, startY + spacing),
-                Font = new Font("Segoe UI", 10),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(80, 80, 80)
-            };
-            contentBox.Controls.Add(lblEmail);
+            // Create avatar choices
+            CreateAvatarChoices();
 
-            txtEmail = new TextBox()
-            {
-                Size = new Size(400, 35),
-                Location = new Point(leftField, startY + spacing + 25),
-                Text = currentUser.Email,
-                ReadOnly = true,
-                BackColor = Color.FromArgb(250, 250, 250),
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 10)
-            };
-            contentBox.Controls.Add(txtEmail);
+            // INPUT FIELDS
+            CreateInputField(contentBox, "Nama", 300, UserSession.Name);
+            CreateInputField(contentBox, "Email", 360, UserSession.Email);
+            CreateInputField(contentBox, "Nomor Telepon", 420, UserSession.Phone);
 
-            // Nomor Telepon
-            Label lblTelepon = new Label()
+            // Save Button
+            btnSave = new Button
             {
-                Text = "Nomor Telepon",
-                Location = new Point(leftLabel, startY + spacing * 2),
-                Font = new Font("Segoe UI", 10),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(80, 80, 80)
-            };
-            contentBox.Controls.Add(lblTelepon);
-
-            txtTelepon = new TextBox()
-            {
-                Size = new Size(400, 35),
-                Location = new Point(leftField, startY + spacing * 2 + 25),
-                Text = currentUser.Telepon,
-                ReadOnly = true,
-                BackColor = Color.FromArgb(250, 250, 250),
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 10)
-            };
-            contentBox.Controls.Add(txtTelepon);
-
-            // Password
-            Label lblPassword = new Label()
-            {
-                Text = "Password",
-                Location = new Point(leftLabel, startY + spacing * 3),
-                Font = new Font("Segoe UI", 10),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(80, 80, 80)
-            };
-            contentBox.Controls.Add(lblPassword);
-
-            txtPassword = new TextBox()
-            {
-                Size = new Size(400, 35),
-                Location = new Point(leftField, startY + spacing * 3 + 25),
-                Text = "••••••••",
-                ReadOnly = true,
-                BackColor = Color.FromArgb(250, 250, 250),
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 10),
-                UseSystemPasswordChar = true
-            };
-            contentBox.Controls.Add(txtPassword);
-
-            // Show/Hide Password Button
-            Button btnShowPassword = new Button()
-            {
-                Text = "👁",
-                Size = new Size(40, 35),
-                Location = new Point(leftField + 410, startY + spacing * 3 + 25),
-                BackColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Tag = txtPassword,
-                Font = new Font("Segoe UI", 10)
-            };
-            btnShowPassword.FlatAppearance.BorderSize = 1;
-            btnShowPassword.FlatAppearance.BorderColor = Color.LightGray;
-            btnShowPassword.Click += BtnShow_Click;
-            contentBox.Controls.Add(btnShowPassword);
-
-            // BUTTON SAVE & CANCEL
-            btnSave = new Button()
-            {
-                Text = "Simpan Perubahan",
-                BackColor = Color.FromArgb(0, 85, 92),
+                Text = "Save",
+                Size = new Size(120, 40),
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                BackColor = Color.FromArgb(0, 120, 100),
                 ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Size = new Size(140, 40),
-                Location = new Point(leftField, startY + spacing * 4 + 10),
-                Visible = false,
-                Font = new Font("Segoe UI", 10)
+                Location = new Point((contentBox.Width - 120) / 2, 480),
+                Visible = false
             };
-            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.Click += BtnSave_Click;
             contentBox.Controls.Add(btnSave);
 
-            btnCancel = new Button()
+            // Load user data
+            LoadUserData();
+        }
+
+        private void CreateInputField(Panel parent, string label, int y, string value)
+        {
+            Label lbl = new Label
             {
-                Text = "Batal",
-                BackColor = Color.FromArgb(150, 150, 150),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Size = new Size(100, 40),
-                Location = new Point(leftField + 150, startY + spacing * 4 + 10),
-                Visible = false,
-                Font = new Font("Segoe UI", 10)
+                Text = label,
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.FromArgb(40, 40, 40),
+                Location = new Point(200, y),
+                AutoSize = true
             };
-            btnCancel.FlatAppearance.BorderSize = 0;
-            contentBox.Controls.Add(btnCancel);
+            parent.Controls.Add(lbl);
 
-            // TAMBAHKAN KE FORM dengan urutan yang benar
-            this.Controls.Add(sidebar);
-            this.Controls.Add(topHeader);
-            this.Controls.Add(contentPanel);
+            TextBox txt = new TextBox
+            {
+                Size = new Size(500, 32),
+                Location = new Point(200, y + 22),
+                Font = new Font("Segoe UI", 10),
+                Text = value,
+                ReadOnly = true,
+                BackColor = Color.FromArgb(175, 240, 220),
+                BorderStyle = BorderStyle.None,
+
+            };
+            parent.Controls.Add(txt);
+
+            inputFields.Add(txt);
         }
 
-        private void BtnShow_Click(object sender, EventArgs e)
+        private void CreateAvatarChoices()
         {
-            Button btn = sender as Button;
-            TextBox txt = btn.Tag as TextBox;
-            if (txt.UseSystemPasswordChar)
+            Image[] images = new Image[]
             {
-                txt.UseSystemPasswordChar = false;
-                btn.Text = "🙈";
-                if (isEditMode) txt.Text = currentUser.Password;
-            }
-            else
+                Properties.Resources.avatar1,
+                Properties.Resources.avatar2,
+                Properties.Resources.avatar3,
+                Properties.Resources.avatar4
+            };
+
+            int startX = 20;
+            int startY = 10;
+            int size = 60;
+            int spacing = 20;
+
+            for (int i = 0; i < images.Length; i++)
             {
-                txt.UseSystemPasswordChar = true;
-                btn.Text = "👁";
-                if (!isEditMode) txt.Text = "••••••••";
-            }
-        }
-
-        private void SetupEvents()
-        {
-            lblEdit.Click += (s, e) => EnableEditMode();
-            btnSave.Click += (s, e) => SaveProfile();
-            btnCancel.Click += (s, e) => CancelEdit();
-            profilePic.Click += (s, e) => ChangeProfilePicture();
-        }
-
-        private void SetDefaultProfilePicture()
-        {
-            Bitmap defaultPic = new Bitmap(profilePic.Width, profilePic.Height);
-            using (Graphics g = Graphics.FromImage(defaultPic))
-            {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                g.Clear(Color.FromArgb(245, 245, 245));
-                using (Font font = new Font("Segoe UI", 35, FontStyle.Bold))
-                using (Brush brush = new SolidBrush(Color.FromArgb(0, 85, 92)))
-                    g.DrawString("👤", font, brush, new PointF(30, 25));
-            }
-            profilePic.Image = defaultPic;
-        }
-
-        private void ChangeProfilePicture()
-        {
-            if (!isEditMode)
-            {
-                MessageBox.Show("Masuk mode edit terlebih dahulu!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            using (OpenFileDialog ofd = new OpenFileDialog())
-            {
-                ofd.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp";
-                ofd.Title = "Pilih Foto Profil";
-
-                if (ofd.ShowDialog() == DialogResult.OK)
+                PictureBox pb = new PictureBox
                 {
-                    try
-                    {
-                        Image img = Image.FromFile(ofd.FileName);
-                        profilePic.Image = ResizeImage(img, profilePic.Width, profilePic.Height);
-                        currentUser.FotoProfil = ofd.FileName;
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error loading image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
+                    Size = new Size(size, size),
+                    Location = new Point(startX + i * (size + spacing), startY),
+                    Image = images[i],
+                    SizeMode = PictureBoxSizeMode.StretchImage,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    Cursor = Cursors.Hand,
+                    Tag = i
+                };
+                MakeCircle(pb);
+                pb.Click += Avatar_Click;
+                avatarPanel.Controls.Add(pb);
+                avatarChoices.Add(pb);
+            }
+        }
+
+        private void Avatar_Click(object sender, EventArgs e)
+        {
+            if (!isEditMode) return;
+
+            PictureBox clicked = sender as PictureBox;
+            int avatarId = (int)clicked.Tag;
+
+            // Update profile picture
+            profilePic.Image = clicked.Image;
+            profilePic.Tag = avatarId;
+
+            // Highlight selected avatar
+            foreach (var pb in avatarChoices)
+            {
+                if (pb == clicked)
+                {
+                    pb.BackColor = Color.Teal;
+                    pb.BorderStyle = BorderStyle.Fixed3D;
+                }
+                else
+                {
+                    pb.BackColor = Color.Transparent;
+                    pb.BorderStyle = BorderStyle.FixedSingle;
                 }
             }
         }
 
-        private Image ResizeImage(Image image, int width, int height)
+        private void LoadUserData()
         {
-            Bitmap bmp = new Bitmap(width, height);
-            using (Graphics g = Graphics.FromImage(bmp))
+            try
             {
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                g.DrawImage(image, 0, 0, width, height);
+                using (var conn = new NpgsqlConnection(connString))
+                {
+                    conn.Open();
+                    string query = "SELECT name, email, phone, avatar_id FROM users WHERE user_id = @id";
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@id", UserSession.UserId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                // Update input fields
+                                if (inputFields.Count >= 3)
+                                {
+                                    inputFields[0].Text = reader["name"].ToString();
+                                    inputFields[1].Text = reader["email"].ToString();
+                                    inputFields[2].Text = reader["phone"] != DBNull.Value ? reader["phone"].ToString() : "";
+                                }
+
+                                // Load avatar
+                                int avatarId = reader["avatar_id"] != DBNull.Value ? Convert.ToInt32(reader["avatar_id"]) : 0;
+                                LoadAvatar(avatarId);
+                            }
+                        }
+                    }
+                }
             }
-            return bmp;
-        }
-
-        private void EnableEditMode()
-        {
-            isEditMode = true;
-            txtNama.ReadOnly = txtEmail.ReadOnly = txtTelepon.ReadOnly = txtPassword.ReadOnly = false;
-            txtNama.BackColor = txtEmail.BackColor = txtTelepon.BackColor = txtPassword.BackColor = Color.White;
-            txtPassword.Text = currentUser.Password;
-            txtPassword.UseSystemPasswordChar = false;
-
-            btnSave.Visible = true;
-            btnCancel.Visible = true;
-            lblEdit.Visible = false;
-        }
-
-        private void DisableEditMode()
-        {
-            isEditMode = false;
-            txtNama.ReadOnly = txtEmail.ReadOnly = txtTelepon.ReadOnly = txtPassword.ReadOnly = true;
-            txtNama.BackColor = txtEmail.BackColor = txtTelepon.BackColor = txtPassword.BackColor = Color.FromArgb(250, 250, 250);
-            txtPassword.Text = "••••••••";
-            txtPassword.UseSystemPasswordChar = true;
-
-            btnSave.Visible = false;
-            btnCancel.Visible = false;
-            lblEdit.Visible = true;
-        }
-
-        private void SaveProfile()
-        {
-            if (string.IsNullOrWhiteSpace(txtNama.Text) || string.IsNullOrWhiteSpace(txtEmail.Text))
+            catch (Exception ex)
             {
-                MessageBox.Show("Nama dan Email harus diisi!", "Peringatan", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Error loading user data: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void LoadAvatar(int avatarId)
+        {
+            Image[] images = new Image[]
+            {
+                Properties.Resources.avatar1,
+                Properties.Resources.avatar2,
+                Properties.Resources.avatar3,
+                Properties.Resources.avatar4
+            };
+
+            if (avatarId >= 0 && avatarId < images.Length)
+            {
+                profilePic.Image = images[avatarId];
+                profilePic.Tag = avatarId;
+            }
+            else
+            {
+                profilePic.Image = images[0];
+                profilePic.Tag = 0;
+            }
+
+            // Highlight selected avatar
+            for (int i = 0; i < avatarChoices.Count; i++)
+            {
+                if (i == avatarId)
+                {
+                    avatarChoices[i].BackColor = Color.Teal;
+                    avatarChoices[i].BorderStyle = BorderStyle.Fixed3D;
+                }
+                else
+                {
+                    avatarChoices[i].BackColor = Color.Transparent;
+                    avatarChoices[i].BorderStyle = BorderStyle.FixedSingle;
+                }
+            }
+        }
+
+        private void BtnEdit_Click(object sender, EventArgs e)
+        {
+            isEditMode = !isEditMode;
+
+            if (isEditMode)
+            {
+                btnEdit.Text = "X Cancel";
+                foreach (var txt in inputFields)
+                {
+                    txt.ReadOnly = false;
+                    BackColor = Color.FromArgb(175, 240, 220);
+               
+                }
+
+                avatarPanel.Visible = true;
+                btnSave.Visible = true;
+            }
+            else
+            {
+                // Cancel edit mode
+                btnEdit.Text = "✎ Edit";
+                foreach (var txt in inputFields)
+                {
+                    txt.ReadOnly = true;
+                    txt.BackColor = Color.FromArgb(175, 240, 220);
+                }
+
+                avatarPanel.Visible = false;
+                btnSave.Visible = false;
+
+                // Reload original data
+                LoadUserData();
+            }
+        }
+
+        private void BtnSave_Click(object sender, EventArgs e)
+        {
+            string newName = inputFields[0].Text;
+            string newEmail = inputFields[1].Text;
+            string newPhone = inputFields[2].Text;
+            int avatarId = profilePic.Tag != null ? (int)profilePic.Tag : 0;
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(newName) || string.IsNullOrWhiteSpace(newEmail))
+            {
+                MessageBox.Show("Nama dan Email tidak boleh kosong!", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            currentUser.Nama = txtNama.Text.Trim();
-            currentUser.Email = txtEmail.Text.Trim();
-            currentUser.Telepon = txtTelepon.Text.Trim();
-            currentUser.Password = txtPassword.Text;
+            try
+            {
+                using (var conn = new NpgsqlConnection(connString))
+                {
+                    conn.Open();
+                    string query = @"
+                        UPDATE users SET 
+                            name = @n, email = @e, phone = @p, avatar_id = @a
+                        WHERE user_id = @id";
 
-            lblHalo.Text = $"Halo, {currentUser.Nama}";
-            DisableEditMode();
-            MessageBox.Show("Profil berhasil diperbarui!", "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@n", newName);
+                        cmd.Parameters.AddWithValue("@e", newEmail);
+                        cmd.Parameters.AddWithValue("@p", newPhone);
+                        cmd.Parameters.AddWithValue("@a", avatarId);
+                        cmd.Parameters.AddWithValue("@id", UserSession.UserId);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                // Update session
+                UserSession.Name = newName;
+                UserSession.Email = newEmail;
+                UserSession.Phone = newPhone;
+                UserSession.AvatarId = avatarId;
+
+                // Exit edit mode
+                isEditMode = false;
+                btnEdit.Text = "✎ Edit";
+                foreach (var txt in inputFields)
+                {
+                    txt.ReadOnly = true;
+                    BackColor = Color.FromArgb(175, 240, 220);
+                }
+
+                avatarPanel.Visible = false;
+                btnSave.Visible = false;
+
+                MessageBox.Show("Profil berhasil diperbarui!", "Success",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error updating profile: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
-        private void CancelEdit()
+        private void MakeCircle(PictureBox pb)
         {
-            txtNama.Text = currentUser.Nama;
-            txtEmail.Text = currentUser.Email;
-            txtTelepon.Text = currentUser.Telepon;
-            txtPassword.Text = "••••••••";
-            DisableEditMode();
+            GraphicsPath gp = new GraphicsPath();
+            gp.AddEllipse(0, 0, pb.Width - 1, pb.Height - 1);
+            pb.Region = new Region(gp);
         }
-    }
 
-    public class UserProfile
-    {
-        public string Nama { get; set; }
-        public string Email { get; set; }
-        public string Telepon { get; set; }
-        public string Password { get; set; }
-        public string FotoProfil { get; set; }
+        private Image SetImageOpacity(Image image, float opacity)
+        {
+            Bitmap bmp = new Bitmap(image.Width, image.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                ColorMatrix m = new ColorMatrix();
+                m.Matrix33 = opacity;
+
+                ImageAttributes ia = new ImageAttributes();
+                ia.SetColorMatrix(m, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+
+                g.DrawImage(image, new Rectangle(0, 0, bmp.Width, bmp.Height),
+                    0, 0, image.Width, image.Height,
+                    GraphicsUnit.Pixel, ia);
+            }
+            return bmp;
+        }
     }
 }

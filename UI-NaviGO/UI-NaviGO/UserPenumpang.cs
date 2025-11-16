@@ -1,5 +1,6 @@
-﻿using System;
-using System.Collections.Generic;   // ← WAJIB untuk List<>
+﻿using Npgsql;
+using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Forms;
@@ -18,6 +19,16 @@ namespace UI_NaviGO
 
         private bool isEditMode;
         private RiwayatTiket tiketEdit;
+
+        private string connString =
+    "Host=aws-1-ap-southeast-1.pooler.supabase.com;" +
+    "Port=5432;" +
+    "Username=postgres.zsktvbvfquecdmndgyrz;" +
+    "Password=agathahusna;" +
+    "Database=postgres;" +
+    "Ssl Mode=Require;" +
+    "Trust Server Certificate=true;";
+
 
         public UserPenumpang(bool isEditMode = false)
         {
@@ -88,8 +99,8 @@ namespace UI_NaviGO
 
             Button btnJadwal = new Button()
             {
-                Text = "  Jadwal dan Rute     >",
-                BackColor = Color.FromArgb(200, 230, 225),
+                Text = "  Jadwal dan Rute",
+                BackColor = Color.White,
                 Dock = DockStyle.Top,
                 Height = 45,
                 ForeColor = Color.FromArgb(0, 85, 92),
@@ -145,9 +156,9 @@ namespace UI_NaviGO
 
             Label lblUsername = new Label()
             {
-                Text = SelectedTicketData.Username ?? "Halo, Pengguna",
+                Text = "Halo, " + UserSession.Name,
+                Font = new Font("Segoe UI", 10),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 11),
                 AutoSize = true
             };
 
@@ -227,15 +238,33 @@ namespace UI_NaviGO
             };
             card.Controls.Add(lblDetail);
 
+            // ===== header =====
+            Panel headerPanel = new Panel()
+            {
+                Location = new Point(80, 60), // di atas panelList
+                Size = new Size(860, 25),
+                BackColor = Color.Transparent
+            };
+
+            Label lblKategori = new Label() { Text = "Kategori", Location = new Point(0, 0), Size = new Size(140, 20), Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            Label lblNama = new Label() { Text = "Nama Penumpang", Location = new Point(160, 0), Size = new Size(260, 20), Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            Label lblNIK = new Label() { Text = "NIK", Location = new Point(440, 0), Size = new Size(220, 20), Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+
+            headerPanel.Controls.AddRange(new Control[] { lblKategori, lblNama, lblNIK });
+            card.Controls.Add(headerPanel);
+
+            // ===== panelList =====
             panelList = new FlowLayoutPanel()
             {
-                Location = new Point(30, 70),
-                Size = new Size(card.Width - 60, 330),
+                Location = new Point(80, 70), // di bawah header
+                Size = new Size(860, 330),
                 AutoScroll = true,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false
             };
             card.Controls.Add(panelList);
+
+
 
             // ===== BUTTONS =====
             btnTambah = new Button()
@@ -310,8 +339,8 @@ namespace UI_NaviGO
             Panel row = new Panel()
             {
                 Width = panelList.Width - 25,
-                Height = 60,
-                Margin = new Padding(0, 0, 0, 10)
+                Height = 40,
+                Margin = new Padding(0, 0, 0, 5)
             };
 
             ComboBox cmbKategori = new ComboBox()
@@ -365,6 +394,44 @@ namespace UI_NaviGO
         // ============== SIMPAN & LANJUT ==============
         private void SimpanDanKePembayaran()
         {
+            // 1. Validasi
+            if (!ValidasiDataPenumpang())
+                return;
+
+            // 2. Simpan ke SelectedTicketData (TIDAK ke database)
+            SimpanDataPenumpangDariUI();
+
+            // 3. Lanjut ke pembayaran
+            this.Hide();
+            new UserPembayaran().Show();
+        }
+
+        private bool ValidasiDataPenumpang()
+        {
+            // First save the data from UI to validate
+            SimpanDataPenumpangDariUI();
+
+            foreach (var p in SelectedTicketData.Penumpang)
+            {
+                if (string.IsNullOrWhiteSpace(p.Nama))
+                {
+                    MessageBox.Show("Nama penumpang tidak boleh kosong!", "Validasi Error",
+                                  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(p.NIK) || p.NIK.Length < 16)
+                {
+                    MessageBox.Show("NIK harus 16 digit!", "Validasi Error",
+                                  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void SimpanDataPenumpangDariUI()
+        {
             SelectedTicketData.Penumpang.Clear();
 
             foreach (Control c in panelList.Controls)
@@ -385,18 +452,20 @@ namespace UI_NaviGO
                         }
                     }
 
-                    SelectedTicketData.Penumpang.Add(new PenumpangData()
+                    if (kategori != null && nama != null && nik != null)
                     {
-                        Kategori = kategori.Text,
-                        Nama = nama.Text.Trim(),
-                        NIK = nik.Text.Trim()
-                    });
+                        SelectedTicketData.Penumpang.Add(new PenumpangData()
+                        {
+                            Kategori = kategori.Text,
+                            Nama = nama.Text.Trim(),
+                            NIK = nik.Text.Trim()
+                        });
+                    }
                 }
             }
-
-            this.Hide();
-            new UserPembayaran().Show();
         }
+
+        
 
         // ===== Utility: Set image opacity =====
         private Image SetImageOpacity(Image image, float opacity)

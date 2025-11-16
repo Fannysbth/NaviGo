@@ -6,9 +6,11 @@ namespace UI_NaviGO
 {
     public partial class UserSuccess : Form
     {
-        public UserSuccess()
+        private int bookingId;
+        public UserSuccess(int bookingId)
         {
             InitializeComponent();
+            this.bookingId = bookingId;
             BuildUI();
         }
 
@@ -92,7 +94,7 @@ namespace UI_NaviGO
                 ForeColor = Color.Gray,
                 AutoSize = true,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Location = new Point((mainPanel.Width - 350) / 2, 230)
+                Location = new Point((mainPanel.Width - 285) / 2, 230)
             };
             mainPanel.Controls.Add(lblMessage);
 
@@ -111,7 +113,7 @@ namespace UI_NaviGO
             btnKirimEmail.Click += (s, e) =>
             {
                 // Buka form untuk kirim email
-                FormKirimEmail formKirimEmail = new FormKirimEmail();
+                FormKirimEmail formKirimEmail = new FormKirimEmail(bookingId);
                 formKirimEmail.ShowDialog();
             };
             mainPanel.Controls.Add(btnKirimEmail);
@@ -127,7 +129,7 @@ namespace UI_NaviGO
                 ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
                 Size = new Size(250, 50),
-                Location = new Point((mainPanel.Width - 260) / 2, 410)
+                Location = new Point((mainPanel.Width - 260) / 2, 370)
             };
             btnJadwal.FlatAppearance.BorderSize = 0;
             btnJadwal.Click += (s, e) =>

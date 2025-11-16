@@ -1,6 +1,8 @@
-﻿using System;
+﻿using Npgsql;
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace UI_NaviGO
@@ -11,15 +13,22 @@ namespace UI_NaviGO
         private Panel topPanel;
         private Panel contentPanelBox;
         private Panel mainContentPanel;
+        private ComboBox cmbMetodePembayaran;
+        private ComboBox cbKelas;
+        private TextBox txtTotalKeseluruhan;
 
         private bool isEditMode;
         private RiwayatTiket tiketEdit;
         private decimal hargaAwal;
 
+        // Variabel untuk perhitungan harga
+        private decimal hargaDasar;
+        private int jumlahDewasa, jumlahAnak, jumlahBayi;
+
         public UserPembayaran(bool isEditMode = false)
         {
             this.isEditMode = isEditMode;
-            if (isEditMode)
+            if (isEditMode && SelectedTicketData.TiketReschedule != null)
             {
                 this.tiketEdit = SelectedTicketData.TiketReschedule;
                 this.hargaAwal = tiketEdit.TotalHarga;
@@ -30,31 +39,21 @@ namespace UI_NaviGO
 
         private void BuildUI()
         {
-            
             // ========== HITUNG TOTAL HARGA ==========
             var r = SelectedTicketData.SelectedRute;
-
-            decimal hargaDasar = r.Harga;
+            hargaDasar = r.Harga;
             decimal hargaKelas = SelectedTicketData.HargaKelas;
 
             // Hitung jumlah per kategori
-            int jumlahDewasa = 0, jumlahAnak = 0, jumlahBayi = 0;
+            jumlahDewasa = 0;
+            jumlahAnak = 0;
+            jumlahBayi = 0;
             foreach (var p in SelectedTicketData.Penumpang)
             {
                 if (p.Kategori == "Dewasa") jumlahDewasa++;
                 else if (p.Kategori == "Anak") jumlahAnak++;
                 else if (p.Kategori == "Bayi") jumlahBayi++;
             }
-
-            // Hitung harga per kategori
-            decimal hargaTiketDewasa = hargaDasar + hargaKelas;
-            decimal hargaTiketAnak = hargaTiketDewasa * 0.75m;
-            decimal hargaTiketBayi = hargaTiketDewasa * 0.25m;
-
-            decimal totalDewasa = hargaTiketDewasa * jumlahDewasa;
-            decimal totalAnak = hargaTiketAnak * jumlahAnak;
-            decimal totalBayi = hargaTiketBayi * jumlahBayi;
-            decimal totalKeseluruhan = totalDewasa + totalAnak + totalBayi;
 
             // ========== FORM ==========
             this.Text = "NaviGo - Pembayaran";
@@ -109,8 +108,8 @@ namespace UI_NaviGO
             // Sidebar buttons
             Button btnJadwal = new Button()
             {
-                Text = "  Jadwal dan Rute     >",
-                BackColor = Color.FromArgb(200, 230, 225),
+                Text = "  Jadwal dan Rute",
+                BackColor = Color.White,
                 Dock = DockStyle.Top,
                 Height = 45,
                 ForeColor = Color.FromArgb(0, 85, 92),
@@ -166,9 +165,9 @@ namespace UI_NaviGO
 
             Label lblUsername = new Label()
             {
-                Text = $"Halo, {SelectedTicketData.Username}",
+                Text = "Halo, " + UserSession.Name,
+                Font = new Font("Segoe UI", 10),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 11),
                 AutoSize = true
             };
 
@@ -302,7 +301,7 @@ namespace UI_NaviGO
                 AutoSize = true
             };
 
-            ComboBox cbKelas = new ComboBox()
+            cbKelas = new ComboBox()
             {
                 Location = new Point(150, currentY),
                 Width = 200,
@@ -374,8 +373,8 @@ namespace UI_NaviGO
             // DEWASA
             currentY += 40;
             TextBox txtJumlahDewasa = new TextBox() { Text = jumlahDewasa.ToString(), Location = new Point(220, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Center };
-            TextBox txtHargaDewasa = new TextBox() { Text = $"Rp {hargaTiketDewasa:N0}", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
-            TextBox txtTotalDewasa = new TextBox() { Text = $"Rp {totalDewasa:N0}", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            TextBox txtHargaDewasa = new TextBox() { Text = "", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
+            TextBox txtTotalDewasa = new TextBox() { Text = "", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
 
             contentPanelBox.Controls.AddRange(new Control[] {
                 new Label() { Text = "Dewasa", Font = new Font("Segoe UI", 10), Location = new Point(50, currentY), Size = new Size(labelWidth, 25) },
@@ -385,8 +384,8 @@ namespace UI_NaviGO
             // ANAK
             currentY += 40;
             TextBox txtJumlahAnak = new TextBox() { Text = jumlahAnak.ToString(), Location = new Point(220, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Center };
-            TextBox txtHargaAnak = new TextBox() { Text = $"Rp {hargaTiketAnak:N0}", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
-            TextBox txtTotalAnak = new TextBox() { Text = $"Rp {totalAnak:N0}", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            TextBox txtHargaAnak = new TextBox() { Text = "", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
+            TextBox txtTotalAnak = new TextBox() { Text = "", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
 
             contentPanelBox.Controls.AddRange(new Control[] {
                 new Label() { Text = "Anak-Anak", Font = new Font("Segoe UI", 10), Location = new Point(50, currentY), Size = new Size(labelWidth, 25) },
@@ -396,8 +395,8 @@ namespace UI_NaviGO
             // BAYI
             currentY += 40;
             TextBox txtJumlahBayi = new TextBox() { Text = jumlahBayi.ToString(), Location = new Point(220, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Center };
-            TextBox txtHargaBayi = new TextBox() { Text = $"Rp {hargaTiketBayi:N0}", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
-            TextBox txtTotalBayi = new TextBox() { Text = $"Rp {totalBayi:N0}", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            TextBox txtHargaBayi = new TextBox() { Text = "", Location = new Point(360, currentY), Size = new Size(textBoxWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right };
+            TextBox txtTotalBayi = new TextBox() { Text = "", Location = new Point(500, currentY), Size = new Size(totalWidth, 25), ReadOnly = true, TextAlign = HorizontalAlignment.Right, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
 
             contentPanelBox.Controls.AddRange(new Control[] {
                 new Label() { Text = "Bayi", Font = new Font("Segoe UI", 10), Location = new Point(50, currentY), Size = new Size(labelWidth, 25) },
@@ -416,9 +415,9 @@ namespace UI_NaviGO
 
             // TOTAL KESELURUHAN
             currentY += 20;
-            TextBox txtTotalKeseluruhan = new TextBox()
+            txtTotalKeseluruhan = new TextBox()
             {
-                Text = $"Rp {totalKeseluruhan:N0}",
+                Text = "",
                 Location = new Point(500, currentY),
                 Size = new Size(150, 30),
                 ReadOnly = true,
@@ -444,7 +443,7 @@ namespace UI_NaviGO
                 Size = new Size(200, 25)
             };
 
-            ComboBox cmbMetodePembayaran = new ComboBox()
+            cmbMetodePembayaran = new ComboBox()
             {
                 Location = new Point(250, currentY),
                 Size = new Size(250, 25),
@@ -508,7 +507,7 @@ namespace UI_NaviGO
             // ================== CONFIRM BUTTON ==================
             Button btnPesan = new Button()
             {
-                Text = "KONFIRMASI PEMBAYARAN",
+                Text = isEditMode ? "KONFIRMASI PERUBAHAN" : "KONFIRMASI PEMBAYARAN",
                 Font = new Font("Segoe UI", 12, FontStyle.Bold),
                 BackColor = Color.FromArgb(255, 204, 153),
                 ForeColor = Color.FromArgb(0, 102, 102),
@@ -517,80 +516,15 @@ namespace UI_NaviGO
                 FlatStyle = FlatStyle.Flat
             };
             btnPesan.FlatAppearance.BorderSize = 0;
-            btnPesan.Click += (s, e) =>
-            {
-                if (cmbMetodePembayaran.SelectedItem == null)
-                {
-                    MessageBox.Show("Pilih metode pembayaran terlebih dahulu!", "Peringatan",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // Hitung ulang harga berdasarkan kelas terpilih
-                decimal tambahan = 0;
-                if (cbKelas.Text == "Bisnis") tambahan = 50000;
-                else if (cbKelas.Text == "VIP") tambahan = 120000;
-                decimal newHargaDewasa = hargaDasar + tambahan;
-                decimal newHargaAnak = newHargaDewasa * 0.75m;
-                decimal newHargaBayi = newHargaDewasa * 0.25m;
-
-                decimal newTotalDewasa = newHargaDewasa * jumlahDewasa;
-                decimal newTotalAnak = newHargaAnak * jumlahAnak;
-                decimal newTotalBayi = newHargaBayi * jumlahBayi;
-                decimal newTotalKeseluruhan = newTotalDewasa + newTotalAnak + newTotalBayi;
-
-                // Simpan data kelas yang dipilih
-                SelectedTicketData.KelasDipilih = cbKelas.Text;
-                SelectedTicketData.HargaKelas = tambahan;
-                
-                string metodePembayaran = cmbMetodePembayaran.SelectedItem.ToString();
-                SelectedTicketData.MetodePembayaran = metodePembayaran;
-
-
-                DialogResult result = MessageBox.Show(
-                    $"Konfirmasi pembayaran sebesar Rp {newTotalKeseluruhan:N0} via {metodePembayaran}?",
-                    "Konfirmasi Pembayaran",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-
-                
-
-                if (result == DialogResult.Yes)
-                {
-                    this.Hide();
-                    new UserSuccess().Show();
-                }
-            };
-
+            btnPesan.Click += BtnPesan_Click;
 
             contentPanelBox.Controls.Add(btnPesan);
 
             // Event handler untuk perubahan kelas
-            cbKelas.SelectedIndexChanged += (s, e) =>
-            {
-                // Hitung ulang harga berdasarkan kelas
-                decimal tambahan = 0;
-                if (cbKelas.Text == "Bisnis") tambahan = 50000;
-                else if (cbKelas.Text == "VIP") tambahan = 120000;
+            cbKelas.SelectedIndexChanged += CbKelas_SelectedIndexChanged;
 
-                decimal newHargaDewasa = hargaDasar + tambahan;
-                decimal newHargaAnak = newHargaDewasa * 0.75m;
-                decimal newHargaBayi = newHargaDewasa * 0.25m;
-
-                decimal newTotalDewasa = newHargaDewasa * jumlahDewasa;
-                decimal newTotalAnak = newHargaAnak * jumlahAnak;
-                decimal newTotalBayi = newHargaBayi * jumlahBayi;
-                decimal newTotalKeseluruhan = newTotalDewasa + newTotalAnak + newTotalBayi;
-
-                // Update tampilan
-                txtHargaDewasa.Text = $"Rp {newHargaDewasa:N0}";
-                txtTotalDewasa.Text = $"Rp {newTotalDewasa:N0}";
-                txtHargaAnak.Text = $"Rp {newHargaAnak:N0}";
-                txtTotalAnak.Text = $"Rp {newTotalAnak:N0}";
-                txtHargaBayi.Text = $"Rp {newHargaBayi:N0}";
-                txtTotalBayi.Text = $"Rp {newTotalBayi:N0}";
-                txtTotalKeseluruhan.Text = $"Rp {newTotalKeseluruhan:N0}";
-            };
+            // Inisialisasi harga pertama kali
+            UpdateHargaBerdasarkanKelas();
 
             mainContentPanel.Controls.Add(contentPanelBox);
             this.Controls.Add(mainContentPanel);
@@ -610,7 +544,7 @@ namespace UI_NaviGO
             {
                 Label lblHargaAwal = new Label()
                 {
-                    Text = $"Harga Sebelumnya: {hargaAwal.ToString("C0")}",
+                    Text = $"Harga Sebelumnya: Rp {hargaAwal:N0}",
                     Font = new Font("Segoe UI", 10, FontStyle.Italic),
                     ForeColor = Color.Gray,
                     Location = new Point(50, currentY),
@@ -633,7 +567,289 @@ namespace UI_NaviGO
                 contentPanelBox.Controls.Add(lblPeringatan);
                 currentY += 50;
             }
+            Panel spacer = new Panel()
+            {
+                Height = 50, // jarak putih
+                Dock = DockStyle.Bottom,
+                BackColor = Color.Transparent
+            };
+            
         }
+
+        private void CbKelas_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateHargaBerdasarkanKelas();
+        }
+
+        private void UpdateHargaBerdasarkanKelas()
+        {
+            // Hitung tambahan harga berdasarkan kelas
+            decimal tambahan = 0;
+            if (cbKelas.Text == "Bisnis") tambahan = 50000;
+            else if (cbKelas.Text == "VIP") tambahan = 120000;
+
+            decimal newHargaDewasa = hargaDasar + tambahan;
+            decimal newHargaAnak = newHargaDewasa * 0.75m;
+            decimal newHargaBayi = newHargaDewasa * 0.25m;
+
+            decimal newTotalDewasa = newHargaDewasa * jumlahDewasa;
+            decimal newTotalAnak = newHargaAnak * jumlahAnak;
+            decimal newTotalBayi = newHargaBayi * jumlahBayi;
+            decimal newTotalKeseluruhan = newTotalDewasa + newTotalAnak + newTotalBayi;
+
+            // Update semua TextBox harga
+            UpdateTextBoxHarga("Dewasa", newHargaDewasa, newTotalDewasa);
+            UpdateTextBoxHarga("Anak", newHargaAnak, newTotalAnak);
+            UpdateTextBoxHarga("Bayi", newHargaBayi, newTotalBayi);
+
+            txtTotalKeseluruhan.Text = $"Rp {newTotalKeseluruhan:N0}";
+
+            // Simpan data kelas yang dipilih
+            SelectedTicketData.KelasDipilih = cbKelas.Text;
+            SelectedTicketData.HargaKelas = tambahan;
+        }
+
+        private void UpdateTextBoxHarga(string kategori, decimal harga, decimal total)
+        {
+            foreach (Control control in contentPanelBox.Controls)
+            {
+                if (control is TextBox textBox)
+                {
+                    if (textBox.Location.X == 360 && control.Parent != null)
+                    {
+                        var label = control.Parent.Controls.OfType<Label>()
+                            .FirstOrDefault(l => l.Location.X == 50 && Math.Abs(l.Location.Y - textBox.Location.Y) < 5);
+
+                        if (label != null && label.Text.Contains(kategori))
+                        {
+                            textBox.Text = $"Rp {harga:N0}";
+                        }
+                    }
+                    else if (textBox.Location.X == 500 && control.Parent != null)
+                    {
+                        var label = control.Parent.Controls.OfType<Label>()
+                            .FirstOrDefault(l => l.Location.X == 50 && Math.Abs(l.Location.Y - textBox.Location.Y) < 5);
+
+                        if (label != null && label.Text.Contains(kategori))
+                        {
+                            textBox.Text = $"Rp {total:N0}";
+                        }
+                    }
+                }
+            }
+        }
+
+        private void BtnPesan_Click(object sender, EventArgs e)
+        {
+            if (cmbMetodePembayaran.SelectedItem == null)
+            {
+                MessageBox.Show("Pilih metode pembayaran terlebih dahulu!", "Peringatan",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string metodePembayaran = cmbMetodePembayaran.SelectedItem.ToString();
+            SelectedTicketData.MetodePembayaran = metodePembayaran;
+
+            decimal totalAkhir = HitungTotalAkhir();
+
+            DialogResult result = MessageBox.Show(
+                $"Konfirmasi pembayaran sebesar Rp {totalAkhir:N0} via {metodePembayaran}?",
+                "Konfirmasi Pembayaran",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                KonfirmasiPembayaran();
+            }
+        }
+
+        private decimal HitungTotalAkhir()
+        {
+            var r = SelectedTicketData.SelectedRute;
+
+            decimal hargaDasar = r.Harga;
+            decimal tambahan = SelectedTicketData.HargaKelas;
+
+            decimal hargaDewasa = hargaDasar + tambahan;
+            decimal hargaAnak = hargaDewasa * 0.75m;
+            decimal hargaBayi = hargaDewasa * 0.25m;
+
+            int jumlahDewasa = SelectedTicketData.Penumpang.Count(p => p.Kategori == "Dewasa");
+            int jumlahAnak = SelectedTicketData.Penumpang.Count(p => p.Kategori == "Anak");
+            int jumlahBayi = SelectedTicketData.Penumpang.Count(p => p.Kategori == "Bayi");
+
+            return (hargaDewasa * jumlahDewasa) +
+                   (hargaAnak * jumlahAnak) +
+                   (hargaBayi * jumlahBayi);
+        }
+
+        private void KonfirmasiPembayaran()
+        {
+            decimal totalAkhir = HitungTotalAkhir();
+            string metodePembayaran = cmbMetodePembayaran.SelectedItem.ToString();
+
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+
+                    if (isEditMode)
+                    {
+                        // UPDATE BOOKING UNTUK RESCHEDULE
+                        string updateBooking = @"
+                    UPDATE bookings 
+                    SET payment_status = 'paid',
+                        payment_method = @method,
+                        total_price = @total,
+                        selected_class = @class,
+                        class_surcharge = @surcharge,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE booking_id = @booking_id;";
+
+                        using (var cmd = new NpgsqlCommand(updateBooking, conn))
+                        {
+                            cmd.Parameters.AddWithValue("method", metodePembayaran);
+                            cmd.Parameters.AddWithValue("total", totalAkhir);
+                            cmd.Parameters.AddWithValue("class", SelectedTicketData.KelasDipilih);
+                            cmd.Parameters.AddWithValue("surcharge", SelectedTicketData.HargaKelas);
+                            cmd.Parameters.AddWithValue("booking_id", SelectedTicketData.BookingID);
+
+                            int rowsAffected = cmd.ExecuteNonQuery();
+
+                            if (rowsAffected > 0)
+                            {
+                                MessageBox.Show("Perubahan tiket berhasil! Tiket Anda telah diperbarui.",
+                                                "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                                this.Hide();
+                                
+                            }
+                        }
+                    }
+                    else
+                    {
+                        int bookingCode = GenerateBookingID(); // generate kode acak
+                        // INSERT BOOKING BARU
+                        string insertBooking = @"
+    INSERT INTO bookings 
+    (booking_id, user_id, schedule_id, total_price, payment_method, 
+     payment_status, selected_class, class_surcharge, created_at)
+    VALUES 
+    (@booking_id, @user_id, @schedule_id, @total_price, @payment_method, 
+     'paid', @selected_class, @class_surcharge, CURRENT_TIMESTAMP)
+    RETURNING booking_id;
+";
+
+                        string insertPassengerSql = @"
+                    INSERT INTO passengers (
+                        booking_id, full_name, category, nik
+                    ) VALUES (
+                        @booking_id, @full_name, @category, @nik
+                    );";
+
+                        using (var cmd = new NpgsqlCommand(insertBooking, conn))
+                        {
+                            cmd.Parameters.AddWithValue("booking_id", bookingCode);
+                            cmd.Parameters.AddWithValue("user_id", SelectedTicketData.UserID);
+                            cmd.Parameters.AddWithValue("schedule_id", SelectedTicketData.SelectedRute.ScheduleID);
+                            cmd.Parameters.AddWithValue("total_price", totalAkhir);
+                            cmd.Parameters.AddWithValue("payment_method", metodePembayaran);
+                            cmd.Parameters.AddWithValue("selected_class", SelectedTicketData.KelasDipilih);
+                            cmd.Parameters.AddWithValue("class_surcharge", SelectedTicketData.HargaKelas);
+
+                            // CAST booking_id dengan aman
+                            int bookingId = Convert.ToInt32(cmd.ExecuteScalar());
+
+
+                            // UPDATE AVAILABLE SEATS
+                            string updateSeats = @"
+                        UPDATE schedules 
+                        SET available_seats = available_seats - @penumpang_count
+                        WHERE schedule_id = @schedule_id;";
+
+                            using (var cmdSeats = new NpgsqlCommand(updateSeats, conn))
+                            {
+                                cmdSeats.Parameters.AddWithValue("penumpang_count", SelectedTicketData.Penumpang.Count);
+                                cmdSeats.Parameters.AddWithValue("schedule_id", SelectedTicketData.SelectedRute.ScheduleID);
+                                cmdSeats.ExecuteNonQuery();
+                            }
+
+                            // INSERT PENUMPANG
+                            using (var trans = conn.BeginTransaction())
+                            {
+                                try
+                                {
+                                    foreach (var p in SelectedTicketData.Penumpang)
+                                    {
+                                        using (var insertP = new NpgsqlCommand(insertPassengerSql, conn, trans))
+                                        {
+                                            insertP.Parameters.AddWithValue("booking_id", bookingId);
+                                            insertP.Parameters.AddWithValue("full_name", p.Nama);
+                                            insertP.Parameters.AddWithValue("category", p.Kategori);
+                                            insertP.Parameters.AddWithValue("nik", p.NIK ?? "");
+
+                                            insertP.ExecuteNonQuery();
+                                        }
+                                    }
+
+                                    trans.Commit();
+                                }
+                                catch
+                                {
+                                    trans.Rollback();
+                                    throw;
+                                }
+                            }
+
+                            MessageBox.Show("Pembayaran berhasil! Tiket Anda telah dikonfirmasi.",
+                                            "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                            this.Hide();
+                            new UserSuccess(bookingId).Show();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Gagal memproses pembayaran:\n{ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        
+
+        }
+
+        private int GenerateBookingID()
+        {
+            Random rnd = new Random();
+            int bookingId;
+            bool isUnique = false;
+
+            using (var conn = DatabaseHelper.GetConnection())
+            {
+                conn.Open();
+                while (!isUnique)
+                {
+                    bookingId = rnd.Next(100000, 999999); // range 6 digit, bisa disesuaikan
+                    string checkSql = "SELECT COUNT(*) FROM bookings WHERE booking_id = @id";
+                    using (var cmd = new NpgsqlCommand(checkSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("id", bookingId);
+                        int count = Convert.ToInt32(cmd.ExecuteScalar());
+                        if (count == 0)
+                        {
+                            isUnique = true;
+                            return bookingId;
+                        }
+                    }
+                }
+            }
+            return 0; // seharusnya tidak pernah sampai sini
+        }
+
 
         private Image SetImageOpacity(Image image, float opacity)
         {

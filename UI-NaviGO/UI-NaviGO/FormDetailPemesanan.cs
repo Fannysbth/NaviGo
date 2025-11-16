@@ -1,4 +1,8 @@
-﻿using System;
+﻿using Npgsql;
+using SendGrid.Helpers.Mail;
+using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Forms;
@@ -7,18 +11,25 @@ namespace UI_NaviGO
 {
     public partial class FormDetailPemesanan : Form
     {
-        private RiwayatTiket tiket;
-
+        private int bookingId;
         private Panel sidebarPanel;
         private Panel topPanel;
         private Panel contentPanelBox;
         private Panel mainContentPanel;
 
-        public FormDetailPemesanan(RiwayatTiket tiket)
+        // Simpan referensi ke kontrol untuk akses mudah
+        private Label lblRuteDetail, lblKapalDetail, lblTanggalDetail;
+        private TextBox txtIdTiket, txtKelas, txtPenumpang, txtTanggalPesan, txtTotalHarga, txtMetodeBayar;
+        private Panel statusPanel;
+        private Label lblStatus;
+        private DataGridView dgvPenumpang;
+
+        public FormDetailPemesanan(int bookingId)
         {
-            this.tiket = tiket;
+            this.bookingId = bookingId;
             InitializeComponent();
             BuildUI();
+            LoadPassengerData();
         }
 
         private void BuildUI()
@@ -77,8 +88,8 @@ namespace UI_NaviGO
             // Sidebar buttons
             Button btnJadwal = new Button()
             {
-                Text = "  Jadwal dan Rute     >",
-                BackColor = Color.FromArgb(200, 230, 225),
+                Text = "  Jadwal dan Rute",
+                BackColor = Color.White,
                 Dock = DockStyle.Top,
                 Height = 45,
                 ForeColor = Color.FromArgb(0, 85, 92),
@@ -101,7 +112,7 @@ namespace UI_NaviGO
                 Height = 45,
                 ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Font = new Font("Segoe UI", 10),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(20, 0, 0, 0),
                 BackColor = Color.White // aktif
@@ -135,9 +146,9 @@ namespace UI_NaviGO
 
             Label lblUsername = new Label()
             {
-                Text = $"Halo, {SelectedTicketData.Username}",
+                Text = "Halo, " + UserSession.Name,
+                Font = new Font("Segoe UI", 10),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 11),
                 AutoSize = true
             };
 
@@ -193,21 +204,12 @@ namespace UI_NaviGO
                 BackgroundImageLayout = ImageLayout.Stretch
             };
 
-            // set background image with opacity if resource exists
-            try
-            {
-                mainContentPanel.BackgroundImage = SetImageOpacity(Properties.Resources.pembayaran_bg, 0.18f);
-            }
-            catch
-            {
-                // jika resource tidak ada, abaikan
-                mainContentPanel.BackgroundImage = null;
-            }
+            mainContentPanel.BackgroundImage = SetImageOpacity(Properties.Resources.sunset_picture, 0.3f);
 
-            // White card di tengah
+            // White card di tengah - TINGGI DINAIIKAN UNTUK MENAMPUNG TABEL
             contentPanelBox = new Panel()
             {
-                Size = new Size(900, 600),
+                Size = new Size(900, 900),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = new Padding(20)
@@ -244,25 +246,26 @@ namespace UI_NaviGO
                 AutoSize = true
             };
 
-            Label lblRuteDetail = new Label()
+            // Data rute akan diisi dari database berdasarkan bookingId
+            lblRuteDetail = new Label()
             {
-                Text = $"Rute: {tiket.Rute}",
+                Text = "Rute: ",
                 Font = new Font("Segoe UI", 10),
                 Location = new Point(20, 40),
                 AutoSize = true
             };
 
-            Label lblKapalDetail = new Label()
+            lblKapalDetail = new Label()
             {
-                Text = $"Kapal: {tiket.Kapal} | ID: {tiket.ID}",
+                Text = "Kapal: ",
                 Font = new Font("Segoe UI", 10),
                 Location = new Point(20, 60),
                 AutoSize = true
             };
 
-            Label lblTanggalDetail = new Label()
+            lblTanggalDetail = new Label()
             {
-                Text = $"Tanggal: {tiket.TanggalBerangkat:dd MMMM yyyy} | {tiket.Waktu}",
+                Text = "Tanggal: ",
                 Font = new Font("Segoe UI", 10),
                 Location = new Point(20, 80),
                 AutoSize = true
@@ -291,7 +294,10 @@ namespace UI_NaviGO
             int valueWidth = 520;
             int lineHeight = 34;
 
-            void AddReadOnlyField(string label, string value)
+            // Simpan semua TextBox dalam list untuk akses mudah
+            var textBoxes = new List<TextBox>();
+
+            void AddReadOnlyField(string label, string value, string name = "")
             {
                 Label l = new Label()
                 {
@@ -304,6 +310,7 @@ namespace UI_NaviGO
                 TextBox tb = new TextBox()
                 {
                     Text = value,
+                    Name = name,
                     Font = new Font("Segoe UI", 10),
                     Location = new Point(valueX, currentY),
                     Size = new Size(valueWidth, 25),
@@ -314,26 +321,34 @@ namespace UI_NaviGO
                 };
                 contentPanelBox.Controls.Add(l);
                 contentPanelBox.Controls.Add(tb);
+                textBoxes.Add(tb);
                 currentY += lineHeight;
             }
 
-            AddReadOnlyField("ID Tiket", tiket.ID);
-            AddReadOnlyField("Kelas", tiket.Kelas);
-            AddReadOnlyField("Penumpang", tiket.Penumpang);
-            AddReadOnlyField("Tanggal Pemesanan", tiket.TanggalPesan.ToString("dd MMMM yyyy"));
+            // Data akan diisi dari database
+            AddReadOnlyField("ID Tiket", "", "txtIdTiket");
+            AddReadOnlyField("Kelas", "", "txtKelas");
+            AddReadOnlyField("Penumpang", "", "txtPenumpang");
+            AddReadOnlyField("Tanggal Pemesanan", "", "txtTanggalPesan");
 
-            // Status with colored panel
+            // Assign ke variabel global
+            txtIdTiket = textBoxes[0];
+            txtKelas = textBoxes[1];
+            txtPenumpang = textBoxes[2];
+            txtTanggalPesan = textBoxes[3];
+
+            // Status dengan panel berwarna
             currentY += 5;
-            Panel statusPanel = new Panel()
+            statusPanel = new Panel()
             {
                 Location = new Point(valueX, currentY),
                 Size = new Size(140, 30),
-                BackColor = GetStatusColor(tiket.Status),
+                BackColor = Color.Gray, // Default color
                 BorderStyle = BorderStyle.FixedSingle
             };
-            Label lblStatus = new Label()
+            lblStatus = new Label()
             {
-                Text = tiket.Status,
+                Text = "",
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
                 ForeColor = Color.White,
                 Dock = DockStyle.Fill,
@@ -343,6 +358,42 @@ namespace UI_NaviGO
             contentPanelBox.Controls.Add(statusPanel);
 
             currentY += 45;
+
+            // ---------- SECTION: Detail Penumpang (Tabel) ----------
+            Label lblSectionPenumpang = new Label()
+            {
+                Text = "Detail Penumpang",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(50, currentY),
+                AutoSize = true,
+                ForeColor = Color.FromArgb(0, 85, 92)
+            };
+            contentPanelBox.Controls.Add(lblSectionPenumpang);
+
+            currentY += 40;
+
+            // Buat DataGridView untuk menampilkan data penumpang
+            dgvPenumpang = new DataGridView()
+            {
+                Location = new Point(50, currentY),
+                Size = new Size(800, 150),
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                ScrollBars = ScrollBars.Vertical,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                RowHeadersVisible = false,
+                ReadOnly = true
+            };
+
+            // Tambahkan kolom
+            dgvPenumpang.Columns.Add("No", "No");
+            dgvPenumpang.Columns.Add("Nama", "Nama Penumpang");
+            dgvPenumpang.Columns.Add("Kategori", "Kategori");
+            dgvPenumpang.Columns.Add("NIK", "NIK");
+
+            contentPanelBox.Controls.Add(dgvPenumpang);
+
+            currentY += 160;
 
             // ---------- SECTION: Informasi Pembayaran ----------
             Label lblSectionBayar = new Label()
@@ -357,11 +408,13 @@ namespace UI_NaviGO
 
             currentY += 40;
 
-            AddReadOnlyField("Total Harga", tiket.TotalHarga.ToString("C0"));
-            if (!string.IsNullOrEmpty(tiket.MetodePembayaran))
-            {
-                AddReadOnlyField("Metode Pembayaran", tiket.MetodePembayaran);
-            }
+            // TextBox untuk pembayaran
+            AddReadOnlyField("Total Harga", "", "txtTotalHarga");
+            AddReadOnlyField("Metode Pembayaran", "", "txtMetodeBayar");
+
+            // Assign ke variabel global
+            txtTotalHarga = textBoxes[4];
+            txtMetodeBayar = textBoxes[5];
 
             // Spacer
             currentY += 20;
@@ -392,17 +445,172 @@ namespace UI_NaviGO
             this.Controls.Add(sidebarPanel);
 
             // Center the card inside mainContentPanel on resize
+            int bottomPadding = 50; // spasi putih di bawah
             mainContentPanel.Resize += (s, e) =>
             {
                 contentPanelBox.Location = new Point(
                     (mainContentPanel.ClientSize.Width - contentPanelBox.Width) / 2,
-                    Math.Max(20, (mainContentPanel.ClientSize.Height - contentPanelBox.Height) / 2)
+                    Math.Max(20, (mainContentPanel.ClientSize.Height - contentPanelBox.Height - bottomPadding) / 2)
                 );
             };
+            Panel spacer = new Panel()
+            {
+                Height = 50, // jarak putih
+                Dock = DockStyle.Bottom,
+                BackColor = Color.Transparent
+            };
+            mainContentPanel.Controls.Add(spacer);
 
             // trigger initial layout
             mainContentPanel.PerformLayout();
             mainContentPanel.Refresh();
+        }
+
+        private void LoadPassengerData()
+        {
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+
+                    // Query untuk mengambil data booking dan penumpang
+                    string query = @"
+                        SELECT 
+                            b.booking_id,
+                            b.booking_date,
+                            b.total_price,
+                            b.payment_method,
+                            b.payment_status,
+                            b.selected_class,
+                            s.departure_date,
+                            s.departure_time,
+                            r.route_name,
+                            r.departure_city,
+                            r.arrival_city,
+                            sh.ship_name,
+                            sh.ship_id,
+                            p.full_name,
+                            p.category,
+                            p.nik
+                        FROM bookings b
+                        JOIN schedules s ON b.schedule_id = s.schedule_id
+                        JOIN routes r ON s.route_id = r.route_id
+                        JOIN ships sh ON s.ship_id = sh.ship_id
+                        LEFT JOIN passengers p ON b.booking_id = p.booking_id
+                        WHERE b.booking_id = @bookingId";
+
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@bookingId", bookingId);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            bool firstRow = true;
+                            int passengerNumber = 1;
+
+                            while (reader.Read())
+                            {
+                                if (firstRow)
+                                {
+                                    // Isi data booking (hanya sekali)
+                                    UpdateBookingInfo(reader);
+                                    firstRow = false;
+                                }
+
+                                // Isi data penumpang ke tabel
+                                if (!reader.IsDBNull(reader.GetOrdinal("full_name")))
+                                {
+                                    string nama = reader.GetString(reader.GetOrdinal("full_name"));
+                                    string kategori = reader.GetString(reader.GetOrdinal("category"));
+                                    string nik = reader.GetString(reader.GetOrdinal("nik"));
+
+                                    dgvPenumpang.Rows.Add(passengerNumber, nama, kategori, nik);
+                                    passengerNumber++;
+                                }
+                            }
+
+                            // Jika tidak ada penumpang, tampilkan pesan
+                            if (passengerNumber == 1)
+                            {
+                                dgvPenumpang.Rows.Add(1, "Tidak ada data penumpang", "", "");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading passenger data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void UpdateBookingInfo(NpgsqlDataReader reader)
+        {
+            try
+            {
+                // Update informasi rute
+                string routeName = reader.GetString(reader.GetOrdinal("route_name"));
+                string departureCity = reader.GetString(reader.GetOrdinal("departure_city"));
+                string arrivalCity = reader.GetString(reader.GetOrdinal("arrival_city"));
+                string shipName = reader.GetString(reader.GetOrdinal("ship_name"));
+                string shipid = reader.GetString(reader.GetOrdinal("ship_id"));
+                DateTime departureDate = reader.GetDateTime(reader.GetOrdinal("departure_date"));
+                TimeSpan departureTime = reader.GetTimeSpan(reader.GetOrdinal("departure_time"));
+
+                lblRuteDetail.Text = $"Rute: {departureCity} - {arrivalCity} ({routeName})";
+                lblKapalDetail.Text = $"Kapal: {shipName} | ID: {shipid}";
+                lblTanggalDetail.Text = $"Tanggal: {departureDate:dd MMMM yyyy} | {departureTime:hh\\:mm}";
+
+                // Update detail tiket
+                DateTime bookingDate = reader.GetDateTime(reader.GetOrdinal("booking_date"));
+                decimal totalPrice = reader.GetDecimal(reader.GetOrdinal("total_price"));
+                string selectedClass = reader.GetString(reader.GetOrdinal("selected_class"));
+                string paymentStatus = reader.GetString(reader.GetOrdinal("payment_status"));
+                string paymentMethod = reader.IsDBNull(reader.GetOrdinal("payment_method")) ?
+                    "Belum dibayar" : reader.GetString(reader.GetOrdinal("payment_method"));
+
+                // Hitung jumlah penumpang dari query terpisah
+                int passengerCount = GetPassengerCount(bookingId);
+
+                txtIdTiket.Text = bookingId.ToString();
+                txtKelas.Text = selectedClass;
+                txtPenumpang.Text = $"{passengerCount} orang";
+                txtTanggalPesan.Text = bookingDate.ToString("dd MMMM yyyy");
+                txtTotalHarga.Text = totalPrice.ToString("C0");
+                txtMetodeBayar.Text = paymentMethod;
+
+                // Update status
+                lblStatus.Text = paymentStatus;
+                statusPanel.BackColor = GetStatusColor(paymentStatus);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error updating booking info: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private int GetPassengerCount(int bookingId)
+        {
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+                    string query = "SELECT COUNT(*) FROM passengers WHERE booking_id = @bookingId";
+
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@bookingId", bookingId);
+                        return Convert.ToInt32(cmd.ExecuteScalar());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error counting passengers: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return 0;
+            }
         }
 
         private Color GetStatusColor(string status)
@@ -414,6 +622,7 @@ namespace UI_NaviGO
                 case "confirmed":
                 case "konfirmasi":
                 case "terkonfirmasi":
+                case "paid":
                     return Color.FromArgb(47, 160, 68); // hijau
                 case "selesai":
                 case "completed":
@@ -422,6 +631,8 @@ namespace UI_NaviGO
                 case "dibatalkan":
                 case "cancel":
                     return Color.FromArgb(209, 100, 58); // orange/merah
+                case "pending":
+                    return Color.FromArgb(255, 193, 7); // kuning
                 default:
                     return Color.Gray;
             }

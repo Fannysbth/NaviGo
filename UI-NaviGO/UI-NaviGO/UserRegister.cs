@@ -1,7 +1,9 @@
-﻿using System;
+﻿using Npgsql;
+using Org.BouncyCastle.Crypto.Generators;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Npgsql;
+using BCrypt.Net;
 
 namespace UI_NaviGO
 {
@@ -37,7 +39,6 @@ namespace UI_NaviGO
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // LEFT IMAGE
             PictureBox pictureBox = new PictureBox
             {
                 Size = new Size(600, 700),
@@ -47,11 +48,11 @@ namespace UI_NaviGO
             };
             this.Controls.Add(pictureBox);
 
-            // TITLE
             Label lblTitle = new Label
             {
                 Text = "Create Account",
                 Font = new Font("Segoe UI", 22, FontStyle.Bold),
+                ForeColor = Color.Black,
                 Location = new Point(730, 120),
                 AutoSize = true
             };
@@ -67,13 +68,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(lblSubtitle);
 
-            // NAME
-            Label lblName = new Label
-            {
-                Text = "Name",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(700, 220)
-            };
+            Label lblName = new Label { Text = "Name", Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(700, 220) };
             this.Controls.Add(lblName);
 
             txtName = new TextBox
@@ -86,13 +81,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtName);
 
-            // EMAIL
-            Label lblEmail = new Label
-            {
-                Text = "Email",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(700, 295)
-            };
+            Label lblEmail = new Label { Text = "Email", Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(700, 295) };
             this.Controls.Add(lblEmail);
 
             txtEmail = new TextBox
@@ -105,13 +94,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtEmail);
 
-            // PASSWORD
-            Label lblPassword = new Label
-            {
-                Text = "Password",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(700, 370)
-            };
+            Label lblPassword = new Label { Text = "Password", Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(700, 370) };
             this.Controls.Add(lblPassword);
 
             txtPassword = new TextBox
@@ -125,13 +108,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtPassword);
 
-            // CONFIRM PASSWORD
-            Label lblConfirm = new Label
-            {
-                Text = "Confirm Password",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(700, 445)
-            };
+            Label lblConfirm = new Label { Text = "Confirm Password", Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(700, 445) };
             this.Controls.Add(lblConfirm);
 
             txtConfirm = new TextBox
@@ -145,7 +122,6 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtConfirm);
 
-            // SIGN UP BUTTON
             Button btnSignUp = new Button
             {
                 Text = "Sign Up",
@@ -154,14 +130,14 @@ namespace UI_NaviGO
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 BackColor = Color.FromArgb(20, 150, 130),
                 ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
             };
             btnSignUp.FlatAppearance.BorderSize = 0;
             btnSignUp.Click += BtnSignUp_Click;
             this.Controls.Add(btnSignUp);
         }
 
-        // REGISTER FUNCTION
         private void BtnSignUp_Click(object sender, EventArgs e)
         {
             string name = txtName.Text.Trim();
@@ -169,20 +145,16 @@ namespace UI_NaviGO
             string password = txtPassword.Text.Trim();
             string confirm = txtConfirm.Text.Trim();
 
-            if (string.IsNullOrEmpty(name) ||
-                string.IsNullOrEmpty(email) ||
-                string.IsNullOrEmpty(password) ||
-                string.IsNullOrEmpty(confirm))
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(email) ||
+                string.IsNullOrEmpty(password) || string.IsNullOrEmpty(confirm))
             {
-                MessageBox.Show("Please fill in all fields.",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please fill in all fields.", "Error");
                 return;
             }
 
             if (password != confirm)
             {
-                MessageBox.Show("Passwords do not match.",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Passwords do not match.", "Error");
                 return;
             }
 
@@ -192,8 +164,8 @@ namespace UI_NaviGO
                 {
                     conn.Open();
 
-                    // CHECK IF EMAIL EXISTS
-                    string checkQuery = "SELECT COUNT(*) FROM users WHERE email = @e";
+                    // check duplicate email
+                    string checkQuery = "SELECT COUNT(*) FROM users WHERE email=@e";
                     using (var checkCmd = new NpgsqlCommand(checkQuery, conn))
                     {
                         checkCmd.Parameters.AddWithValue("@e", email);
@@ -201,34 +173,34 @@ namespace UI_NaviGO
 
                         if (exists > 0)
                         {
-                            MessageBox.Show("Email already registered.",
-                                "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            MessageBox.Show("Email already registered.");
                             return;
                         }
                     }
 
-                    // INSERT NEW USER
+                    // hash password
+                    string hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
+
+                    // insert user
                     string insertQuery =
                         "INSERT INTO users (name, email, password) VALUES (@n, @e, @p)";
+
                     using (var cmd = new NpgsqlCommand(insertQuery, conn))
                     {
                         cmd.Parameters.AddWithValue("@n", name);
                         cmd.Parameters.AddWithValue("@e", email);
-                        cmd.Parameters.AddWithValue("@p", password);
+                        cmd.Parameters.AddWithValue("@p", hashedPassword);
                         cmd.ExecuteNonQuery();
                     }
 
-                    MessageBox.Show("Account created successfully!",
-                        "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
+                    MessageBox.Show("Account created successfully!");
                     this.Hide();
                     new UserLogin().Show();
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Database connection failed:\n" + ex.Message,
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Database error:\n" + ex.Message);
             }
         }
     }

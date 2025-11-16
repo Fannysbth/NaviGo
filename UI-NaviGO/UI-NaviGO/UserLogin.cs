@@ -1,16 +1,18 @@
-﻿using System;
+﻿using Npgsql;
+using Org.BouncyCastle.Crypto.Generators;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Npgsql;
+using BCrypt.Net;
 
 namespace UI_NaviGO
 {
     public partial class UserLogin : Form
     {
-        // ===== KONFIGURASI DATABASE SUPABASE =====
+        // ===== CONNECTION STRING SUPABASE =====
         private string connString =
         "Host=aws-1-ap-southeast-1.pooler.supabase.com;" +
-        "Port=5432;" +
+        "Port=6543;" +
         "Username=postgres.zsktvbvfquecdmndgyrz;" +
         "Password=agathahusna;" +
         "Database=postgres;" +
@@ -35,7 +37,7 @@ namespace UI_NaviGO
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // ===== LEFT IMAGE PANEL =====
+            // LEFT IMAGE
             PictureBox pictureBox = new PictureBox
             {
                 Size = new Size(600, 700),
@@ -45,7 +47,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(pictureBox);
 
-            // ===== TITLE =====
+            // TITLE
             Label lblTitle = new Label
             {
                 Text = "User Login",
@@ -66,7 +68,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(lblSubtitle);
 
-            // ===== EMAIL =====
+            // EMAIL
             Label lblEmail = new Label
             {
                 Text = "Email",
@@ -85,7 +87,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtEmail);
 
-            // ===== PASSWORD =====
+            // PASSWORD
             Label lblPassword = new Label
             {
                 Text = "Password",
@@ -105,7 +107,7 @@ namespace UI_NaviGO
             };
             this.Controls.Add(txtPassword);
 
-            // ===== LOGIN BUTTON =====
+            // LOGIN BUTTON
             Button btnLogin = new Button
             {
                 Text = "Login",
@@ -121,13 +123,13 @@ namespace UI_NaviGO
             btnLogin.Click += BtnLogin_Click;
             this.Controls.Add(btnLogin);
 
-            // ===== REGISTER LINK =====
+            // REGISTER LINK
             Label lblRegister = new Label
             {
-                Text = "No Account Yet?",
+                Text = "Don't have an account?",
                 Font = new Font("Segoe UI", 9),
                 ForeColor = Color.Black,
-                Location = new Point(800, 480),
+                Location = new Point(780, 480),
                 AutoSize = true
             };
             this.Controls.Add(lblRegister);
@@ -149,7 +151,7 @@ namespace UI_NaviGO
             this.Controls.Add(linkRegister);
         }
 
-        // ================= LOGIN FUNCTION ==================
+        // LOGIN FUNCTION
         private void BtnLogin_Click(object sender, EventArgs e)
         {
             string email = txtEmail.Text.Trim();
@@ -157,8 +159,7 @@ namespace UI_NaviGO
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
             {
-                MessageBox.Show("Please enter both email and password.",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please enter both email and password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -168,47 +169,54 @@ namespace UI_NaviGO
                 {
                     conn.Open();
 
-                    // Cek user di Supabase
-                    string query = "SELECT * FROM users WHERE email = @e AND password = @p";
+                    // QUERY SUPABASE
+                    string query =
+                        @"SELECT user_id, name, email, phone, password
+                          FROM users
+                          WHERE email = @e";
 
                     using (var cmd = new NpgsqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@e", email);
-                        cmd.Parameters.AddWithValue("@p", password);
 
                         using (var reader = cmd.ExecuteReader())
                         {
-                            if (reader.Read())
+                            if (!reader.Read())
                             {
-                                reader.Close();
-
-                                // Catat login ke login_history
-                                string logQuery = "INSERT INTO login_history (email, login_time) VALUES (@e, CURRENT_TIMESTAMP)";
-                                using (var cmdLog = new NpgsqlCommand(logQuery, conn))
-                                {
-                                    cmdLog.Parameters.AddWithValue("@e", email);
-                                    cmdLog.ExecuteNonQuery();
-                                }
-
-                                MessageBox.Show("Login successful!",
-                                    "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                                this.Hide();
-                                new UserJadwal().Show();
+                                MessageBox.Show("Email not found.", "Login Failed",  MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                return;
                             }
-                            else
+
+                            int userId = reader.GetInt32(0);
+                            string name = reader.GetString(1);
+                            string emailDB = reader.GetString(2);
+                            string phone = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                            string hashedPassword = reader.GetString(4);
+
+                            // HASH CHECK
+                            if (!BCrypt.Net.BCrypt.Verify(password, hashedPassword))
                             {
-                                MessageBox.Show("Invalid email or password.",
-                                    "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                MessageBox.Show("Incorrect password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                return;
                             }
+
+                            // SAVE SESSION
+                            UserSession.UserId = userId;
+                            UserSession.Name = name;
+                            UserSession.Email = emailDB;
+                            UserSession.Phone = phone;
+                            UserSession.Password = hashedPassword;
                         }
                     }
+
+                    MessageBox.Show("Login successful!", "Login Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    this.Hide();
+                    new UserJadwal().Show();
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Database connection failed:\n" + ex.Message,
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Database connection failed:\n" + ex.Message);
             }
         }
     }

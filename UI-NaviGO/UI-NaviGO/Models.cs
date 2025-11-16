@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace UI_NaviGO
@@ -9,36 +10,23 @@ namespace UI_NaviGO
     // ===============================
 
     // 🧱 Base Class: Encapsulation
+    // RuteKapal.cs
     public class RuteKapal
     {
-        private string id;
-        private string kapal;
-        private string rute;
-        private DateTime tanggal;
-        private string jamBerangkat;
-        private string jamTiba;
-        private string transit;
-        private decimal harga;
+        public string ID { get; set; }
+        public string Kapal { get; set; }
+        public string Rute { get; set; }
+        public DateTime Tanggal { get; set; }
+        public string JamBerangkat { get; set; }
+        public string JamTiba { get; set; }
+        public string Transit { get; set; }
+        public decimal Harga { get; set; }
+        public int ScheduleID { get; set; } // TAMBAH INI
+        public string ShipID { get; set; }
 
-        public string ID { get => id; set => id = value; }
-        public string Kapal { get => kapal; set => kapal = value; }
-        public string Rute { get => rute; set => rute = value; }
-        public DateTime Tanggal { get => tanggal; set => tanggal = value; }
-        public string JamBerangkat { get => jamBerangkat; set => jamBerangkat = value; }
-        public string JamTiba { get => jamTiba; set => jamTiba = value; }
-        public string Transit { get => transit; set => transit = value; }
-        public decimal Harga
-        {
-            get => harga;
-            set
-            {
-                if (value < 0)
-                    throw new ArgumentException("Harga tidak boleh negatif!");
-                harga = value;
-            }
-        }
-
-        public RuteKapal(string id, string kapal, string rute, DateTime tanggal, string jamBerangkat, string jamTiba, string transit, decimal harga)
+        public RuteKapal(string id, string kapal, string rute, DateTime tanggal,
+                        string jamBerangkat, string jamTiba, string transit,
+                        decimal harga, int scheduleID)
         {
             ID = id;
             Kapal = kapal;
@@ -48,29 +36,24 @@ namespace UI_NaviGO
             JamTiba = jamTiba;
             Transit = transit;
             Harga = harga;
+            ScheduleID = scheduleID;
         }
 
-        // 🔸 Virtual agar bisa di-override oleh subclass (Polymorphism)
-        public virtual string GetInfo()
-        {
-            return $"{ID} - {Kapal} ({Rute}) pada {Tanggal:dd MMM yyyy} - Rp {Harga:N0}";
-        }
-
-        // Method untuk mendapatkan kota asal
         public string GetKotaAsal()
         {
-            if (string.IsNullOrEmpty(Rute) || !Rute.Contains("-"))
-                return "Unknown";
             return Rute.Split('-')[0].Trim();
         }
 
-        // Method untuk mendapatkan kota tujuan
         public string GetKotaTujuan()
         {
-            if (string.IsNullOrEmpty(Rute) || !Rute.Contains("-"))
-                return "Unknown";
             return Rute.Split('-')[1].Trim();
         }
+
+        public virtual string GetInfo()
+        {
+            return $"{Kapal} | {Rute} | {Tanggal:dd MMM yyyy} | {JamBerangkat}-{JamTiba} | Harga: {Harga}";
+        }
+
     }
 
     // 🧱 Subclass: Inheritance + Polymorphism
@@ -78,17 +61,15 @@ namespace UI_NaviGO
     {
         public string FasilitasVIP { get; set; }
 
-        public RuteVIP(string id, string kapal, string rute, DateTime tanggal, string jamBerangkat, string jamTiba, string transit, decimal harga, string fasilitas)
-            : base(id, kapal, rute, tanggal, jamBerangkat, jamTiba, transit, harga)
+        public RuteVIP(string id, string kapal, string rute, DateTime tanggal,
+                       string jamBerangkat, string jamTiba, string transit,
+                       decimal harga, int scheduleID, string fasilitas)
+            : base(id, kapal, rute, tanggal, jamBerangkat, jamTiba, transit, harga, scheduleID)
         {
             FasilitasVIP = fasilitas;
         }
-
-        public override string GetInfo()
-        {
-            return base.GetInfo() + $" | Fasilitas: {FasilitasVIP}";
-        }
     }
+
 
     public class PenumpangData
     {
@@ -111,10 +92,13 @@ namespace UI_NaviGO
         public static string MetodePembayaran { get; set; }
         public static List<PenumpangData> Penumpang { get; set; } = new List<PenumpangData>();
         public static string Username { get; set; } = "Pengunjung NaviGo";
-        public static string Email { get; set; } = "felicia.angel@example.com"; // TAMBAH PROPERTY EMAIL
+        public static string Email { get; set; } = "felicia.angel@example.com";
+        public static int UserID { get; set; } = UserSession.UserId; // TAMBAHKAN INI - default value
 
         public static RiwayatTiket TiketReschedule { get; set; }
         public static bool IsRescheduleMode => TiketReschedule != null;
+        public static int BookingID { get; set; }
+
         public static void Reset()
         {
             SelectedRute = null;
@@ -151,16 +135,51 @@ namespace UI_NaviGO
     // ===============================
     public class RiwayatTiket
     {
-        public string ID { get; set; }
-        public string Rute { get; set; }
-        public DateTime TanggalPesan { get; set; }
-        public DateTime TanggalBerangkat { get; set; }
-        public string Waktu { get; set; }
-        public string Penumpang { get; set; }
-        public string Kapal { get; set; }
-        public string Kelas { get; set; }
-        public decimal TotalHarga { get; set; }
-        public string Status { get; set; }
-        public string MetodePembayaran { get; set; }// Confirmed, Selesai, Cancelled
+        public int BookingID { get; set; }
+        public string ID { get; set; }  // booking_reference
+        public string Rute { get; set; }  // route_name / departure - arrival
+        public DateTime TanggalPesan { get; set; }  // booking_date
+        public DateTime TanggalBerangkat { get; set; }  // departure_date
+        public string Waktu { get; set; }  // departure_time
+        public string Penumpang { get; set; }  // gabungkan nama penumpang & kategori
+        public string Kapal { get; set; }  // ship_name
+        public string Kelas { get; set; }  // selected_class
+        public decimal TotalHarga { get; set; }  // total_price
+        public string Status { get; set; }  // payment_status
+        public string MetodePembayaran { get; set; }
+
+        public string RingkasanPenumpang
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Penumpang)) return "0";
+
+                // Penumpang disimpan seperti: "John Doe (Dewasa), Jane Doe (Anak-anak), Bob (Dewasa)"
+                var kategoriCount = new Dictionary<string, int>();
+
+                var penumpangList = Penumpang.Split(',');
+                foreach (var p in penumpangList)
+                {
+                    var start = p.IndexOf('(');
+                    var end = p.IndexOf(')');
+
+                    string kategori = "Lainnya";
+                    if (start >= 0 && end > start)
+                    {
+                        kategori = p.Substring(start + 1, end - start - 1).Trim();
+                    }
+
+                    if (!kategoriCount.ContainsKey(kategori))
+                        kategoriCount[kategori] = 0;
+
+                    kategoriCount[kategori]++;
+                }
+
+                // Buat string ringkasan: "2 (Dewasa), 1 (Anak-anak)"
+                return string.Join(", ", kategoriCount.Select(kvp => $"{kvp.Value} ({kvp.Key})"));
+            }
+        }
+
     }
+
 }

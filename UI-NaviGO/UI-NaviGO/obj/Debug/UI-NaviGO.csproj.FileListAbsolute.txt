@@ -68,3 +68,5 @@ C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\Microsoft.Extensions.
 C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\Microsoft.Extensions.Configuration.Abstractions.xml
 C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\Microsoft.Extensions.Primitives.xml
 C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\Sprache.xml
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\BCrypt.Net-Next.dll
+C:\Users\fanny\JUNPRO\NaviGo\UI-NaviGO\UI-NaviGO\bin\Debug\BCrypt.Net-Next.xml

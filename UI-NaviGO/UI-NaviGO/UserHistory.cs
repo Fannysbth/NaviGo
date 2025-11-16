@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Windows.Forms;
+
+
 
 namespace UI_NaviGO
 {
@@ -10,7 +13,7 @@ namespace UI_NaviGO
         // Data dummy untuk riwayat pemesanan
         private List<RiwayatTiket> daftarRiwayat;
         private FlowLayoutPanel flowTickets;
-        private ComboBox cmbStatus;
+
         private ComboBox cmbPeriode;
         private TextBox txtRute;
         private Label lblTicketCount;
@@ -18,247 +21,275 @@ namespace UI_NaviGO
         public UserHistory()
         {
             InitializeComponent();
-            InitializeData();
+            if (DatabaseHelper.TestConnection())
+            {
+                LoadRiwayatDariDatabase(UserSession.UserId);
+                //LoadRiwayatDariDatabase(1);// ganti dengan userId yang login
+            }
+
             InitializeUI();
             SetupEvents();
             RefreshTampilan();
         }
 
-        private void InitializeData()
+        private void LoadRiwayatDariDatabase(int userId)
         {
-            // Inisialisasi data dummy riwayat pemesanan
-            daftarRiwayat = new List<RiwayatTiket>
-            {
-                new RiwayatTiket
-                {
-                    ID = "NV2025001",
-                    Rute = "Jakarta - Batam",
-                    TanggalPesan = new DateTime(2024, 10, 20),
-                    TanggalBerangkat = new DateTime(2024, 12, 15),
-                    Waktu = "08:00 WIB",
-                    Penumpang = "2 Dewasa, 1 Anak",
-                    Kapal = "KM Sinar Harapan",
-                    Kelas = "Ekonomi",
-                    TotalHarga = 1350000,
-                    Status = "Confirmed"
-                },
-                new RiwayatTiket
-                {
-                    ID = "NV2024022",
-                    Rute = "Surabaya - Bali",
-                    TanggalPesan = new DateTime(2024, 1, 16),
-                    TanggalBerangkat = new DateTime(2024, 3, 28),
-                    Waktu = "19:00 WIB",
-                    Penumpang = "2 Dewasa",
-                    Kapal = "KM Nusantara Jaya",
-                    Kelas = "Bisnis",
-                    TotalHarga = 2200000,
-                    Status = "Selesai"
-                },
-                new RiwayatTiket
-                {
-                    ID = "NV2024033",
-                    Rute = "Semarang - Makassar",
-                    TanggalPesan = new DateTime(2024, 2, 10),
-                    TanggalBerangkat = new DateTime(2024, 4, 5),
-                    Waktu = "07:15 WIB",
-                    Penumpang = "1 Dewasa",
-                    Kapal = "KM Bahari",
-                    Kelas = "Ekonomi",
-                    TotalHarga = 1200000,
-                    Status = "Cancelled"
-                },
-                new RiwayatTiket
-                {
-                    ID = "NV2024044",
-                    Rute = "Bali - Lombok",
-                    TanggalPesan = new DateTime(2024, 3, 1),
-                    TanggalBerangkat = new DateTime(2024, 5, 20),
-                    Waktu = "10:00 WIB",
-                    Penumpang = "3 Dewasa, 2 Anak",
-                    Kapal = "KM Pelangi",
-                    Kelas = "VIP",
-                    TotalHarga = 3500000,
-                    Status = "Confirmed"
-                }
-            };
+            daftarRiwayat = new List<RiwayatTiket>();
 
-            // Tambahkan ke TiketManager juga
-            TiketManager.DaftarTiket.AddRange(daftarRiwayat);
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+
+                    // Query tunggal dengan JOIN untuk mengambil semua data sekaligus
+                    string sql = @"
+                SELECT 
+                    b.booking_id,
+                    b.booking_reference,
+                    r.route_name,
+                    s.departure_date,
+                    s.departure_time,
+                    u.name AS user_name,
+                    b.selected_class,
+                    b.total_price,
+                    p.payment_method,
+                    STRING_AGG(pass.full_name || 
+                              CASE WHEN pass.category IS NOT NULL AND pass.category != '' 
+                                   THEN ' (' || pass.category || ')' 
+                                   ELSE '' 
+                              END, ', ') AS penumpang_list
+                FROM bookings b
+                JOIN schedules s ON b.schedule_id = s.schedule_id
+                JOIN routes r ON s.route_id = r.route_id
+                JOIN users u ON b.user_id = u.user_id
+                LEFT JOIN payments p ON b.booking_id = p.booking_id
+                LEFT JOIN passengers pass ON b.booking_id = pass.booking_id
+                WHERE b.user_id = @userId
+                GROUP BY b.booking_id, b.booking_reference, r.route_name, s.departure_date, 
+                         s.departure_time, u.name, b.selected_class, b.total_price, p.payment_method
+                ORDER BY b.booking_date DESC;
+            ";
+
+                    using (var cmd = new Npgsql.NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("userId", userId);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var tiket = new RiwayatTiket
+                                {
+                                    BookingID = reader.GetInt32(reader.GetOrdinal("booking_id")),
+                                    ID = reader.IsDBNull(reader.GetOrdinal("booking_reference"))
+                                        ? $"BK-{reader.GetInt32(reader.GetOrdinal("booking_id"))}"
+                                        : reader.GetString(reader.GetOrdinal("booking_reference")),
+                                    Rute = reader.GetString(reader.GetOrdinal("route_name")),
+                                    TanggalPesan = reader.GetDateTime(reader.GetOrdinal("departure_date")),
+                                    TanggalBerangkat = reader.GetDateTime(reader.GetOrdinal("departure_date")),
+                                    Waktu = reader.GetTimeSpan(reader.GetOrdinal("departure_time")).ToString(@"hh\:mm"),
+                                    Penumpang = reader.IsDBNull(reader.GetOrdinal("penumpang_list"))
+                                        ? ""
+                                        : reader.GetString(reader.GetOrdinal("penumpang_list")),
+                                    Kelas = reader.GetString(reader.GetOrdinal("selected_class")),
+                                    TotalHarga = reader.GetDecimal(reader.GetOrdinal("total_price")),
+                                    MetodePembayaran = reader.IsDBNull(reader.GetOrdinal("payment_method"))
+                                        ? ""
+                                        : reader.GetString(reader.GetOrdinal("payment_method")),
+                                    Kapal = "Belum Tersedia",
+                                    Status = "paid"
+                                };
+
+                                daftarRiwayat.Add(tiket);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Gagal mengambil data riwayat: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
+
 
         private void InitializeUI()
         {
-            // === WARNA UTAMA ===
-            Color mainBlue = Color.FromArgb(0, 85, 92);       // teal NaviGO
-            Color sidebarActive = Color.FromArgb(191, 224, 215);
-            Color pageBg = Color.FromArgb(250, 246, 246);
+            this.Text = "NaviGO - Riwayat Pemesanan";
+            this.WindowState = FormWindowState.Maximized;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
+            Color mainBlue = Color.FromArgb(0, 85, 92); // teal NaviGO
 
-            // === PANEL SIDEBAR ===
-            Panel sidebar = new Panel
+
+            // SIDEBAR
+            Panel sidebar = new Panel()
             {
-                BackColor = Color.FromArgb(243, 247, 246),
-                Dock = DockStyle.Left,
-                Width = 260,
-                Padding = new Padding(18, 18, 0, 0)
+                BackColor = Color.FromArgb(225, 240, 240),
+                Width = 250,
+                Dock = DockStyle.Left
             };
 
-            PictureBox picLogo = new PictureBox
+            Panel logoPanel = new Panel()
             {
-                SizeMode = PictureBoxSizeMode.Zoom,
-                Location = new Point(20, 12),
-                Size = new Size(56, 56),
+                Height = 120,
+                Dock = DockStyle.Top
+            };
+
+            PictureBox logo = new PictureBox()
+            {
+                Size = new Size(60, 60),
+                Location = new Point(20, 25),
+                SizeMode = PictureBoxSizeMode.StretchImage,
+                BackColor = Color.Transparent,
                 Image = Properties.Resources.logo_navigo
             };
 
-            Label lblLogo = new Label
+            Label lblSidebarTitle = new Label()
             {
                 Text = "NaviGO",
-                Font = new Font("Segoe UI Semibold", 14F, FontStyle.Bold),
-                ForeColor = mainBlue,
-                Location = new Point(90, 22),
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 85, 92),
+                Location = new Point(95, 35),
                 AutoSize = true
             };
 
-            Label lblSubtitle = new Label
+            Label lblLogoSubtitle = new Label()
             {
                 Text = "Ship Easily",
-                Font = new Font("Segoe UI", 9F),
-                ForeColor = Color.Gray,
-                Location = new Point(90, 44),
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.FromArgb(0, 85, 92),
+                Location = new Point(97, 60),
                 AutoSize = true
             };
 
-            Button btnJadwalRute = new Button
-            {
-                Text = "Jadwal & Rute",
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10F),
-                ForeColor = mainBlue,
-                BackColor = Color.White,
-                Size = new Size(260, 44),
-                Location = new Point(0, 100),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(24, 0, 0, 0)
-            };
-            btnJadwalRute.FlatAppearance.BorderSize = 0;
+            logoPanel.Controls.AddRange(new Control[] { logo, lblSidebarTitle, lblLogoSubtitle });
 
-            Button btnRiwayat = new Button
+            Button btnJadwal = new Button()
+            {
+                Text = "  Jadwal dan Rute ",
+                Dock = DockStyle.Top,
+                Height = 45,
+                BackColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(20, 0, 0, 0)
+            };
+
+            Button btnRiwayat = new Button()
+            {
+                Text = "Riwayat Pemesanan ",
+                Dock = DockStyle.Top,
+                Height = 45,
+                BackColor = Color.FromArgb(200, 230, 225),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(20, 0, 0, 0)
+            };
+
+            btnJadwal.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserJadwal().Show();
+            };
+
+            btnRiwayat.FlatAppearance.BorderSize = 0;
+            btnJadwal.FlatAppearance.BorderSize = 0;
+
+
+            sidebar.Controls.AddRange(new Control[]
+            {
+                btnRiwayat, btnJadwal, logoPanel
+            });
+
+            // HEADER
+            Panel topHeader = new Panel()
+            {
+                BackColor = Color.Teal,
+                Height = 70,
+                Dock = DockStyle.Top
+            };
+
+            Label lblHeaderTitle = new Label()
             {
                 Text = "Riwayat Pemesanan",
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI Semibold", 10.5F, FontStyle.Bold),
-                ForeColor = mainBlue,
-                BackColor = sidebarActive,
-                Size = new Size(260, 44),
-                Location = new Point(0, 146),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(24, 0, 0, 0)
-            };
-            btnRiwayat.FlatAppearance.BorderSize = 0;
-
-            sidebar.Controls.AddRange(new Control[] { btnRiwayat, btnJadwalRute, lblSubtitle, lblLogo, picLogo });
-
-            // === HEADER ===
-            Panel header = new Panel
-            {
-                BackColor = mainBlue,
-                Dock = DockStyle.Top,
-                Height = 72,
-                Padding = new Padding(18, 8, 18, 8)
-            };
-
-            Label lblWelcome = new Label
-            {
-                Text = "Halo, Felicia Angel",
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10.5F),
-                AutoSize = true,
-                Location = new Point(0, 22)
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Location = new Point(15, 20),
+                AutoSize = true
             };
 
-            Button btnProfile = new Button
+            Label lblUsername = new Label()
+            {
+                Text = "Halo, " + UserSession.Name,
+                Font = new Font("Segoe UI", 10),
+                ForeColor = Color.White,
+                AutoSize = true
+            };
+
+            Button btnProfile = new Button()
             {
                 Text = "Profile",
                 BackColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Size = new Size(80, 28),
-                Location = new Point(650, 18),
-                Font = new Font("Segoe UI", 9F),
-                ForeColor = mainBlue
+                Width = 90,
+                Height = 35,
+                Font = new Font("Segoe UI", 9),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             btnProfile.FlatAppearance.BorderSize = 0;
+            btnProfile.Click += (s, e) =>
+            {
+                FormProfileUser profileForm = new FormProfileUser();
+                profileForm.Closed += (s2, e2) => this.Close();
+                profileForm.Show();
+                this.Hide();
+            };
 
-            Button btnLogout = new Button
+            Button btnLogout = new Button()
             {
                 Text = "Logout",
-                BackColor = Color.FromArgb(209, 100, 58),
+                BackColor = Color.FromArgb(210, 80, 60),
+                Width = 90,
+                Height = 35,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9),
                 FlatStyle = FlatStyle.Flat,
-                Size = new Size(80, 28),
-                Location = new Point(790, 18),
-                Font = new Font("Segoe UI", 9F),
-                ForeColor = Color.White
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             btnLogout.FlatAppearance.BorderSize = 0;
+            btnLogout.Click += (s, e) =>
+            {
+                this.Hide();
+                new UserLogin().Show();
+            };
 
-            header.Controls.AddRange(new Control[] { lblWelcome, btnProfile, btnLogout });
+            topHeader.Resize += (s, e) =>
+            {
+                btnLogout.Location = new Point(topHeader.Width - 110, 18);
+                btnProfile.Location = new Point(topHeader.Width - 210, 18);
+                lblUsername.Location = new Point(topHeader.Width - 350, 22);
+            };
+
+            topHeader.Controls.AddRange(new Control[] { lblHeaderTitle, lblUsername, btnProfile, btnLogout });
+
+
 
             // === CONTENT AREA ===
             Panel content = new Panel
             {
-                BackColor = pageBg,
+                BackColor = Color.White,
                 Dock = DockStyle.Fill,
-                Padding = new Padding(28)
+                Padding = new Padding(28),
+                BorderStyle = BorderStyle.FixedSingle,
             };
+            content.BackgroundImage = SetImageOpacity(Properties.Resources.tiket_bg, 0.3f);
 
             // ===== TITLE PANEL =====
-            Panel pnlTitle = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 90,
-                Padding = new Padding(8),
-                BackColor = Color.Transparent
-            };
 
-            Label lblTitle = new Label
-            {
-                Text = "Riwayat Pemesanan",
-                Font = new Font("Segoe UI Semibold", 20F, FontStyle.Bold),
-                ForeColor = mainBlue,
-                AutoSize = true,
-                Location = new Point(6, 18)
-            };
-
-            Panel pnlTicketCount = new Panel
-            {
-                Size = new Size(120, 60),
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(this.ClientSize.Width - 360, 15),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Padding = new Padding(8)
-            };
-
-            Label lblTicketCountLabel = new Label
-            {
-                Text = "Total Tiket",
-                Font = new Font("Segoe UI", 9F),
-                ForeColor = Color.Gray,
-                Location = new Point(8, 6),
-                AutoSize = true
-            };
-
-            lblTicketCount = new Label
-            {
-                Text = "0",
-                Font = new Font("Segoe UI Semibold", 20F, FontStyle.Bold),
-                ForeColor = mainBlue,
-                Location = new Point(50, 20),
-                AutoSize = true
-            };
-
-            pnlTicketCount.Controls.AddRange(new Control[] { lblTicketCountLabel, lblTicketCount });
-            pnlTitle.Controls.AddRange(new Control[] { lblTitle, pnlTicketCount });
 
             // ===== FILTER PANEL =====
             Panel pnlFilters = new Panel
@@ -269,23 +300,8 @@ namespace UI_NaviGO
                 BackColor = Color.Transparent
             };
 
-            Label lblStatus = new Label
-            {
-                Text = "Status",
-                Font = new Font("Segoe UI", 9F),
-                Location = new Point(10, 14),
-                AutoSize = true
-            };
 
-            cmbStatus = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 9F),
-                Location = new Point(10, 34),
-                Size = new Size(160, 25)
-            };
-            cmbStatus.Items.AddRange(new object[] { "Semua Status", "Confirmed", "Selesai", "Cancelled" });
-            cmbStatus.SelectedIndex = 0;
+
 
             Label lblPeriode = new Label
             {
@@ -344,7 +360,7 @@ namespace UI_NaviGO
             };
             btnReset.FlatAppearance.BorderSize = 0;
 
-            pnlFilters.Controls.AddRange(new Control[] { lblStatus, cmbStatus, lblPeriode, cmbPeriode, lblRute, txtRute, btnFilter, btnReset });
+            pnlFilters.Controls.AddRange(new Control[] {  lblPeriode, cmbPeriode, lblRute, txtRute, btnFilter, btnReset });
 
             // ===== FLOW TICKET =====
             flowTickets = new FlowLayoutPanel
@@ -356,39 +372,16 @@ namespace UI_NaviGO
                 Padding = new Padding(6)
             };
 
-            content.Controls.AddRange(new Control[] { flowTickets, pnlFilters, pnlTitle });
+            content.Controls.Add(flowTickets);      // Dock = Fill, tapi harus ditambahkan terakhir
+            content.Controls.Add(pnlFilters);       // Dock = Top        // Dock = Top
 
-            // ===== FORM SETUP =====
-            this.Text = "NaviGO - Riwayat Pemesanan";
-            this.WindowState = FormWindowState.Maximized;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
 
-            // Setup events untuk sidebar buttons
-            btnJadwalRute.Click += (s, e) =>
-            {
-                this.Hide();
-                new UserJadwal().Show();
-            };
 
-            btnProfile.Click += (s, e) =>
-            {
-                this.Hide();
-                new FormProfileUser().Show();
-            };
 
-            btnLogout.Click += (s, e) =>
-            {
-                if (MessageBox.Show("Yakin ingin logout?", "Konfirmasi",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    this.Hide();
-                    new UserLogin().Show();
-                }
-            };
 
-            this.Controls.AddRange(new Control[] { content, header, sidebar });
+
+
+            this.Controls.AddRange(new Control[] { content,  topHeader, sidebar });
         }
 
         private void SetupEvents()
@@ -411,7 +404,6 @@ namespace UI_NaviGO
             }
 
             // Event perubahan combobox
-            cmbStatus.SelectedIndexChanged += (s, e) => RefreshTampilan();
             cmbPeriode.SelectedIndexChanged += (s, e) => RefreshTampilan();
 
             // Event textbox rute (filter saat tekan Enter)
@@ -462,8 +454,6 @@ namespace UI_NaviGO
                 jumlahTiket++;
             }
 
-            // Update jumlah tiket
-            lblTicketCount.Text = jumlahTiket.ToString();
 
             // Tampilkan pesan jika tidak ada tiket
             if (jumlahTiket == 0)
@@ -488,9 +478,6 @@ namespace UI_NaviGO
 
             foreach (var tiket in daftarRiwayat)
             {
-                // Filter status
-                if (cmbStatus.SelectedIndex > 0 && tiket.Status != cmbStatus.SelectedItem.ToString())
-                    continue;
 
                 // Filter periode
                 if (cmbPeriode.SelectedIndex > 0)
@@ -521,7 +508,6 @@ namespace UI_NaviGO
 
         private void ResetFilter()
         {
-            cmbStatus.SelectedIndex = 0;
             cmbPeriode.SelectedIndex = 0;
             txtRute.Text = "Cari Rute...";
             txtRute.ForeColor = Color.Gray;
@@ -539,7 +525,7 @@ namespace UI_NaviGO
 
             Panel card = new Panel
             {
-                Width = 820,
+                Width = 920,
                 Height = 170,
                 Margin = new Padding(6),
                 BackColor = Color.Transparent
@@ -561,7 +547,7 @@ namespace UI_NaviGO
             {
                 Size = new Size(100, 24),
                 BackColor = badgeColor,
-                Location = new Point(700, 8),
+                Location = new Point(800, 8),
                 Padding = new Padding(6, 2, 6, 2)
             };
             Label lblBadge = new Label
@@ -579,7 +565,7 @@ namespace UI_NaviGO
 
             Label lblTanggal = new Label { Text = $"TANGGAL KEBERANGKATAN\n{tiket.TanggalBerangkat:dd MMMM yyyy}", Font = new Font("Segoe UI", 8F), ForeColor = Color.DimGray, Size = new Size(200, 36), Location = new Point(8, 6) };
             Label lblWaktu = new Label { Text = $"WAKTU\n{tiket.Waktu}", Font = new Font("Segoe UI", 8F), ForeColor = Color.DimGray, Size = new Size(130, 36), Location = new Point(220, 6) };
-            Label lblPenumpang = new Label { Text = $"PENUMPANG\n{tiket.Penumpang}", Font = new Font("Segoe UI", 8F), ForeColor = Color.DimGray, Size = new Size(190, 36), Location = new Point(360, 6) };
+            Label lblPenumpang = new Label { Text = $"PENUMPANG\n{tiket.RingkasanPenumpang}", Font = new Font("Segoe UI", 8F), ForeColor = Color.DimGray, Size = new Size(190, 36), Location = new Point(360, 6) };
             Label lblKapal = new Label { Text = $"KAPAL\n{tiket.Kapal}", Font = new Font("Segoe UI", 8F), ForeColor = Color.DimGray, Size = new Size(160, 36), Location = new Point(560, 6) };
             Label lblKelas = new Label { Text = $"KELAS\n{tiket.Kelas}", Font = new Font("Segoe UI", 8F), ForeColor = Color.DimGray, Size = new Size(80, 36), Location = new Point(740, 6) };
 
@@ -591,13 +577,20 @@ namespace UI_NaviGO
                 Text = "Download E-Ticket",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Size = new Size(150, 35),
-                Location = new Point(450, 65),
+                Location = new Point(650, 65),
                 BackColor = Color.FromArgb(255, 204, 153),
                 ForeColor = Color.FromArgb(0, 85, 92),
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Flat,
+                Tag = tiket
             };
             btnDownload.FlatAppearance.BorderSize = 0;
-            btnDownload.Click += (s, e) => DownloadTiket(tiket.ID);
+           
+            btnDownload.Click += (s, e) =>
+            {
+                var selectedTiket = (RiwayatTiket)((Button)s).Tag;
+                FormKirimEmail formKirimEmail = new FormKirimEmail(selectedTiket.BookingID);
+                formKirimEmail.ShowDialog();
+            };
 
             // TOMBOL DETAIL - SEPERTI DI USERPEMBAYARAN TAPI HANYA BACA
             Button btnDetail = new Button
@@ -605,34 +598,25 @@ namespace UI_NaviGO
                 Text = "Lihat Detail",
                 Font = new Font("Segoe UI", 9F),
                 Size = new Size(100, 35),
-                Location = new Point(610, 65),
+                Location = new Point(810, 65),
                 BackColor = Color.FromArgb(180, 220, 215),
                 ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
                 Tag = tiket
             };
             btnDetail.FlatAppearance.BorderSize = 0;
-            btnDetail.Click += (s, e) => TampilkanDetailPemesanan((RiwayatTiket)btnDetail.Tag);
-
-            // TOMBOL EDIT - UNTUK RESCHEDULE DAN EDIT PENUMPANG
-            Button btnEdit = new Button
+            btnDetail.Click += (s, e) =>
             {
-                Text = "Edit",
-                Font = new Font("Segoe UI", 9F),
-                Size = new Size(80, 35),
-                Location = new Point(720, 65),
-                BackColor = tiket.Status == "Confirmed" ? Color.FromArgb(253, 170, 109) : Color.LightGray,
-                ForeColor = Color.FromArgb(0, 85, 92),
-                FlatStyle = FlatStyle.Flat,
-                Tag = tiket,
-                Enabled = tiket.Status == "Confirmed"
+                var selectedTiket = (RiwayatTiket)((Button)s).Tag;
+                FormDetailPemesanan formdetail = new FormDetailPemesanan(selectedTiket.BookingID);
+                formdetail.ShowDialog();
             };
-            btnEdit.FlatAppearance.BorderSize = 0;
-            btnEdit.Click += (s, e) => EditPemesanan((RiwayatTiket)btnEdit.Tag);
+
+            
 
             Label lblBooked = new Label { Text = $"Dipesan pada: {tiket.TanggalPesan:dd MMMM yyyy}", Font = new Font("Segoe UI", 8F), ForeColor = Color.LightGray, AutoSize = true, Location = new Point(8, 100) };
 
-            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail, btnEdit, lblBooked });
+            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail,  lblBooked });
 
             outer.Controls.Add(inner);
             outer.Controls.Add(header);
@@ -641,30 +625,29 @@ namespace UI_NaviGO
             return card;
         }
 
-        private void DownloadTiket(string idTiket)
+        
+
+
+
+
+        private Image SetImageOpacity(Image image, float opacity)
         {
-            var tiket = daftarRiwayat.Find(t => t.ID == idTiket);
-            if (tiket != null)
+            if (image == null) return null;
+
+            Bitmap bmp = new Bitmap(image.Width, image.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
             {
-                MessageBox.Show($"Download e-ticket untuk {idTiket}\n" +
-                              $"Rute: {tiket.Rute}\n" +
-                              $"File PDF akan disimpan di folder Downloads",
-                              "Download Tiket",
-                              MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ColorMatrix matrix = new ColorMatrix();
+                matrix.Matrix33 = opacity;
+                ImageAttributes attributes = new ImageAttributes();
+                attributes.SetColorMatrix(matrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+                g.DrawImage(image,
+                    new Rectangle(0, 0, bmp.Width, bmp.Height),
+                    0, 0, image.Width, image.Height,
+                    GraphicsUnit.Pixel,
+                    attributes);
             }
-        }
-
-        private void TampilkanDetailPemesanan(RiwayatTiket tiket)
-        {
-            FormDetailPemesanan formDetail = new FormDetailPemesanan(tiket);
-            formDetail.ShowDialog();
-        }
-
-        private void EditPemesanan(RiwayatTiket tiket)
-        {
-            // Tampilkan form edit dengan opsi reschedule dan edit penumpang
-            FormEditPemesanan formEdit = new FormEditPemesanan(tiket);
-            formEdit.ShowDialog();
+            return bmp;
         }
     }
 }

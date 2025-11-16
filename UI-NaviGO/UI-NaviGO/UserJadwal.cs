@@ -4,12 +4,13 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Npgsql;
 
 namespace UI_NaviGO
 {
     public partial class UserJadwal : Form
     {
-        private List<RuteKapal> daftarRuteAll;
+        private List<RuteKapal> daftarRuteAll = new List<RuteKapal>();
         private Panel sidebar;
         private Panel topHeader;
         private bool userSudahPilihTanggal = false;
@@ -19,30 +20,83 @@ namespace UI_NaviGO
         private ComboBox cbxDari;
         private ComboBox cbxKe;
         private DateTimePicker dtpTanggal;
-        private UserProfile currentUser;
+
+
+
 
 
         public UserJadwal()
         {
             InitializeComponent();
             BuildUI();
-            InitializeHardcodeData();
             LoadDataRute();
             SetupEventHandlers();
-            InitializeUserData();
+            LoadDataFromSupabase();
         }
 
-        private void InitializeUserData()
+
+
+        private void LoadDataFromSupabase()
         {
-            currentUser = new UserProfile
+            daftarRuteAll.Clear();
+
+            try
             {
-                Nama = "Felicia Angel",
-                Email = "felicia.angel@example.com",
-                Telepon = "+62 812-3456-7890",
-                Password = "password123",
-                FotoProfil = null
-            };
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+
+                    string sql = @"
+                SELECT 
+                    s.schedule_id,  -- TAMBAH INI
+                    sh.ship_id,
+                    sh.ship_name,
+                    CONCAT(r.departure_city, ' - ', r.arrival_city) AS rute,
+                    s.departure_date,
+                    s.departure_time,
+                    s.arrival_time,
+                    r.transit_info,
+                    r.base_price,
+                    s.available_seats
+                FROM schedules s
+                JOIN ships sh ON s.ship_id = sh.ship_id
+                JOIN routes r ON s.route_id = r.route_id
+                WHERE s.departure_date >= CURRENT_DATE
+                AND s.available_seats > 0
+                ORDER BY s.departure_date ASC, s.departure_time ASC;";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            daftarRuteAll.Add(new RuteKapal(
+                                reader["ship_id"].ToString(),
+                                reader["ship_name"].ToString(),
+                                reader["rute"].ToString(),
+                                Convert.ToDateTime(reader["departure_date"]),
+                                reader["departure_time"].ToString(),
+                                reader["arrival_time"].ToString(),
+                                reader["transit_info"].ToString(),
+                                Convert.ToDecimal(reader["base_price"]),
+                                Convert.ToInt32(reader["schedule_id"])  // TAMBAH INI
+                            ));
+                        }
+                    }
+                }
+
+                LoadDataRute();
+                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Gagal mengambil data dari database:\n{ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
+
+
+
 
         private void BuildUI()
         {
@@ -97,7 +151,7 @@ namespace UI_NaviGO
 
             Button btnJadwal = new Button()
             {
-                Text = "  Jadwal dan Rute    >",
+                Text = "  Jadwal dan Rute ",
                 Dock = DockStyle.Top,
                 Height = 45,
                 BackColor = Color.FromArgb(200, 230, 225),
@@ -143,7 +197,7 @@ namespace UI_NaviGO
 
             Label lblHeaderTitle = new Label()
             {
-                Text = "Jadwal & Rute Kapal",
+                Text = "Jadwal dan  Rute Kapal",
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 Location = new Point(15, 20),
@@ -152,9 +206,9 @@ namespace UI_NaviGO
 
             Label lblUsername = new Label()
             {
-                Text = $"Halo, User",
+                Text = "Halo, " + UserSession.Name,
+                Font = new Font("Segoe UI", 10),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 11),
                 AutoSize = true
             };
 
@@ -344,15 +398,7 @@ namespace UI_NaviGO
             return bmp;
         }
 
-        private void InitializeHardcodeData()
-        {
-            daftarRuteAll = new List<RuteKapal>
-            {
-                new RuteKapal("KP001","Kapal Pelni","Jakarta - Batam",new DateTime(2025,11,20),"08:00","14:00","Langsung",750000),
-                new RuteKapal("KP002","Kapal Jaya","Surabaya - Bali",new DateTime(2025,12,10),"07:00","12:00","Transit 1x",450000),
-                new RuteKapal("KP003","Kapal Maritim","Bali - Surabaya",new DateTime(2025,12,18),"11:00","18:00","Langsung",350000)
-            };
-        }
+        
 
         private void LoadDataRute()
         {
