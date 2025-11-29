@@ -26,8 +26,9 @@ namespace UI_NaviGO
 
         public FormKirimEmail(int bookingId)
         {
-            string envPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".env");
-            DotNetEnv.Env.Load(envPath);
+            //string envPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".env");
+            //DotNetEnv.Env.Load(envPath);
+            DotNetEnv.Env.Load();
             this.bookingId = bookingId;
             InitializeComponent();
             BuildUI();
@@ -103,9 +104,9 @@ namespace UI_NaviGO
 
                     // Ambil data booking + user
                     string sqlBooking = @"
-                SELECT b.booking_id, b.user_id, b.schedule_id, b.selected_class, b.total_price, b.payment_method, 
+                SELECT b.booking_id, b.user_id, b.schedule_id, b.selected_class, b.total_price, b.payment_method,
                        b.booking_reference, b.class_surcharge,
-                       u.name, u.email
+                       u.name, u.email, b.payment_status, 
                 FROM bookings b
                 JOIN users u ON u.user_id = b.user_id
                 WHERE b.booking_id = @bookingId";
@@ -127,6 +128,7 @@ namespace UI_NaviGO
                                     BookingReference = reader.IsDBNull(6) ? "" : reader.GetString(6),
                                     ClassSurcharge = reader.IsDBNull(7) ? 0 : reader.GetDecimal(7),
                                     Username = reader.GetString(8),
+                                    PaymentStatus = reader.GetString(10),
                                     UserEmail = reader.GetString(9),
                                     Penumpang = new List<PassengerData>()
                                 };
@@ -255,7 +257,16 @@ namespace UI_NaviGO
 
                 document.Add(new Paragraph("E-TICKET NAVIGO", titleFont) { Alignment = Element.ALIGN_CENTER, SpacingAfter = 20f });
                 document.Add(new Paragraph($"Booking Id: {bookingId}", normalFont) { Alignment = Element.ALIGN_CENTER, SpacingAfter = 20f });
-                document.Add(new Paragraph("STATUS: LUNAS", FontFactory.GetFont("Arial", 14, iTextSharp.text.Font.BOLD, BaseColor.GREEN)) { Alignment = Element.ALIGN_RIGHT, SpacingAfter = 20f });
+                string statusColor = SelectedTicketData.PaymentStatus == "paid" ? "GREEN" : "RED";
+                BaseColor color = SelectedTicketData.PaymentStatus == "paid" ? BaseColor.GREEN : BaseColor.RED;
+
+                document.Add(new Paragraph($"STATUS: {SelectedTicketData.PaymentStatus.ToUpper()}",
+                    FontFactory.GetFont("Arial", 14, iTextSharp.text.Font.BOLD, color))
+                {
+                    Alignment = Element.ALIGN_RIGHT,
+                    SpacingAfter = 20f
+                });
+
 
                 document.Add(new Paragraph("INFORMASI PERJALANAN", headerFont));
                 document.Add(new Paragraph($"Rute: {rute.Rute}", normalFont));
@@ -352,6 +363,7 @@ namespace UI_NaviGO
         public string BookingReference;
         public string Username;
         public string UserEmail;
+        public string PaymentStatus;
         public decimal ClassSurcharge;
         public RouteData SelectedRute;
         public List<PassengerData> Penumpang;

@@ -1,5 +1,6 @@
 ﻿using Npgsql;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
@@ -20,19 +21,34 @@ namespace UI_NaviGO
         private bool isEditMode;
         private RiwayatTiket tiketEdit;
         private decimal hargaAwal;
+        private int bookingId;
 
         // Variabel untuk perhitungan harga
         private decimal hargaDasar;
         private int jumlahDewasa, jumlahAnak, jumlahBayi;
 
+        // Controls untuk display harga
+        private TextBox txtHargaAwal;
+        private TextBox txtHargaBaru;
+        private TextBox txtSelisih;
+        private Label lblHargaAwal;
+        private Label lblHargaBaru;
+        private Label lblSelisih;
+
+        // Tombol konfirmasi
+        private Button btnPesan;
+
         public UserPembayaran(bool isEditMode = false)
         {
             this.isEditMode = isEditMode;
+            this.bookingId = isEditMode ? SelectedTicketData.TiketReschedule.BookingID : 0;
+
             if (isEditMode && SelectedTicketData.TiketReschedule != null)
             {
                 this.tiketEdit = SelectedTicketData.TiketReschedule;
-                this.hargaAwal = tiketEdit.TotalHarga;
+                this.hargaAwal = SelectedTicketData.OriginalTotalPrice;
             }
+
             InitializeComponent();
             BuildUI();
         }
@@ -40,20 +56,44 @@ namespace UI_NaviGO
         private void BuildUI()
         {
             // ========== HITUNG TOTAL HARGA ==========
-            var r = SelectedTicketData.SelectedRute;
+            dynamic r = isEditMode ? (dynamic)GetRouteDataFromBooking()
+                       : (dynamic)SelectedTicketData.SelectedRute;
+            // DEBUG: Cek nilai harga dasar
+            Console.WriteLine($"Harga Dasar: {r.Harga}");
+            Console.WriteLine($"Mode Edit: {isEditMode}");
             hargaDasar = r.Harga;
             decimal hargaKelas = SelectedTicketData.HargaKelas;
+
+            if (isEditMode && (SelectedTicketData.Penumpang == null || SelectedTicketData.Penumpang.Count == 0))
+            {
+                // Jika data penumpang kosong di mode edit, ambil dari TiketReschedule
+                if (SelectedTicketData.TiketReschedule != null && SelectedTicketData.TiketReschedule.Penumpang != null)
+                {
+                    SelectedTicketData.Penumpang = new List<PenumpangData>(SelectedTicketData.TiketReschedule.Penumpang);
+                }
+            }
 
             // Hitung jumlah per kategori
             jumlahDewasa = 0;
             jumlahAnak = 0;
             jumlahBayi = 0;
-            foreach (var p in SelectedTicketData.Penumpang)
+
+            if (SelectedTicketData.Penumpang != null)
             {
-                if (p.Kategori == "Dewasa") jumlahDewasa++;
-                else if (p.Kategori == "Anak") jumlahAnak++;
-                else if (p.Kategori == "Bayi") jumlahBayi++;
+                foreach (var p in SelectedTicketData.Penumpang)
+                {
+                    if (p.Kategori == "Dewasa") jumlahDewasa++;
+                    else if (p.Kategori == "Anak") jumlahAnak++;
+                    else if (p.Kategori == "Bayi") jumlahBayi++;
+                }
             }
+            else
+            {
+                // Jika masih null, inisialisasi list kosong
+                SelectedTicketData.Penumpang = new List<PenumpangData>();
+            }
+
+          
 
             // ========== FORM ==========
             this.Text = "NaviGo - Pembayaran";
@@ -156,7 +196,7 @@ namespace UI_NaviGO
 
             Label lblHeaderTitle = new Label()
             {
-                Text = "Detail Pembayaran",
+                Text = isEditMode ? "Pembayaran Edit Pemesanan" : "Detail Pembayaran",
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 AutoSize = true,
@@ -226,9 +266,10 @@ namespace UI_NaviGO
             mainContentPanel.BackgroundImage = SetImageOpacity(Properties.Resources.pembayaran_bg, 0.3f);
 
             // White box - diperbesar untuk menampung lebih banyak konten
+            int contentHeight = isEditMode ? 1100 : 800;
             contentPanelBox = new Panel()
             {
-                Size = new Size(900, 800), // Diperbesar untuk menampung kelas
+                Size = new Size(900, contentHeight),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = new Padding(20)
@@ -236,7 +277,7 @@ namespace UI_NaviGO
 
             Label lblTitle = new Label()
             {
-                Text = "Detail Pembayaran Tiket",
+                Text = isEditMode ? "Pembayaran Edit Tiket" : "Detail Pembayaran Tiket",
                 Font = new Font("Segoe UI", 20, FontStyle.Bold),
                 AutoSize = true,
                 Location = new Point(280, 30)
@@ -263,9 +304,21 @@ namespace UI_NaviGO
                 AutoSize = true
             };
 
+            string ruteInfo = isEditMode ?
+                $"{SelectedTicketData.UpdatedBookingData.DepartureCity} - {SelectedTicketData.UpdatedBookingData.ArrivalCity}" :
+                r.Rute;
+
+            string kapalInfo = isEditMode ?
+                $"{SelectedTicketData.UpdatedBookingData.ShipName} | ID: {SelectedTicketData.UpdatedBookingData.ShipId}" :
+                $"{r.Kapal} | ID: {r.ID}";
+
+            string tanggalInfo = isEditMode ?
+                $"Tanggal: {SelectedTicketData.UpdatedBookingData.DepartureDate:dd MMMM yyyy} | {SelectedTicketData.UpdatedBookingData.DepartureTime:hh\\:mm}" :
+                $"Tanggal: {r.Tanggal:dd MMMM yyyy} | {r.JamBerangkat} - {r.JamTiba}";
+
             Label lblRuteDetail = new Label()
             {
-                Text = $"Rute: {r.Rute}",
+                Text = $"Rute: {ruteInfo}",
                 Font = new Font("Segoe UI", 10),
                 Location = new Point(20, 35),
                 AutoSize = true
@@ -273,7 +326,7 @@ namespace UI_NaviGO
 
             Label lblKapalDetail = new Label()
             {
-                Text = $"Kapal: {r.Kapal} | ID: {r.ID}",
+                Text = $"Kapal: {kapalInfo}",
                 Font = new Font("Segoe UI", 10),
                 Location = new Point(20, 55),
                 AutoSize = true
@@ -281,7 +334,7 @@ namespace UI_NaviGO
 
             Label lblTanggalDetail = new Label()
             {
-                Text = $"Tanggal: {r.Tanggal:dd MMMM yyyy} | {r.JamBerangkat} - {r.JamTiba}",
+                Text = tanggalInfo,
                 Font = new Font("Segoe UI", 10),
                 Location = new Point(20, 75),
                 AutoSize = true
@@ -312,6 +365,8 @@ namespace UI_NaviGO
             // Set kelas yang sudah dipilih sebelumnya jika ada
             if (!string.IsNullOrEmpty(SelectedTicketData.KelasDipilih))
                 cbKelas.Text = SelectedTicketData.KelasDipilih;
+            else if (isEditMode && !string.IsNullOrEmpty(SelectedTicketData.UpdatedBookingData.SelectedClass))
+                cbKelas.Text = SelectedTicketData.UpdatedBookingData.SelectedClass;
             else
                 cbKelas.SelectedIndex = 0;
 
@@ -434,6 +489,105 @@ namespace UI_NaviGO
 
             currentY += 60;
 
+            // ========== RINCIAN PERUBAHAN HARGA (Hanya untuk mode edit) ==========
+            if (isEditMode)
+            {
+                Label lblRincianPerubahan = new Label()
+                {
+                    Text = "Rincian Perubahan Harga",
+                    Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                    Location = new Point(50, currentY),
+                    AutoSize = true,
+                    ForeColor = Color.FromArgb(0, 85, 92)
+                };
+                contentPanelBox.Controls.Add(lblRincianPerubahan);
+
+                currentY += 40;
+
+                // Harga Awal
+                lblHargaAwal = new Label()
+                {
+                    Text = "Harga Sebelumnya:",
+                    Font = new Font("Segoe UI", 10),
+                    Location = new Point(50, currentY),
+                    Size = new Size(150, 25)
+                };
+
+                txtHargaAwal = new TextBox()
+                {
+                    Text = $"Rp {hargaAwal:N0}",
+                    Location = new Point(220, currentY),
+                    Size = new Size(150, 25),
+                    ReadOnly = true,
+                    TextAlign = HorizontalAlignment.Right,
+                    BackColor = Color.FromArgb(240, 240, 240)
+                };
+                contentPanelBox.Controls.AddRange(new Control[] { lblHargaAwal, txtHargaAwal });
+
+                currentY += 35;
+
+                // Harga Baru
+                lblHargaBaru = new Label()
+                {
+                    Text = "Harga Baru:",
+                    Font = new Font("Segoe UI", 10),
+                    Location = new Point(50, currentY),
+                    Size = new Size(150, 25)
+                };
+
+                txtHargaBaru = new TextBox()
+                {
+                    Text = "",
+                    Location = new Point(220, currentY),
+                    Size = new Size(150, 25),
+                    ReadOnly = true,
+                    TextAlign = HorizontalAlignment.Right,
+                    BackColor = Color.FromArgb(240, 240, 240)
+                };
+                contentPanelBox.Controls.AddRange(new Control[] { lblHargaBaru, txtHargaBaru });
+
+                currentY += 35;
+
+                // Selisih
+                lblSelisih = new Label()
+                {
+                    Text = "Selisih yang Harus Dibayar:",
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    Location = new Point(50, currentY),
+                    Size = new Size(180, 25)
+                };
+
+                txtSelisih = new TextBox()
+                {
+                    Text = "",
+                    Location = new Point(220, currentY),
+                    Size = new Size(150, 25),
+                    ReadOnly = true,
+                    TextAlign = HorizontalAlignment.Right,
+                    BackColor = Color.FromArgb(255, 255, 200),
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    ForeColor = Color.DarkRed
+                };
+                contentPanelBox.Controls.AddRange(new Control[] { lblSelisih, txtSelisih });
+
+                currentY += 50;
+
+                // Informasi tambahan untuk mode edit
+                Label lblInfoEdit = new Label()
+                {
+                    Text = "Catatan: Jika harga baru lebih rendah, selisih tidak dapat dikembalikan. " +
+                          "Jika harga baru lebih tinggi, Anda perlu membayar selisihnya.",
+                    Font = new Font("Segoe UI", 9),
+                    ForeColor = Color.OrangeRed,
+                    Location = new Point(50, currentY),
+                    Size = new Size(800, 40),
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+                contentPanelBox.Controls.Add(lblInfoEdit);
+
+                currentY += 50;
+            }
+
             // ========== METODE PEMBAYARAN ==========
             Label lblMetode = new Label()
             {
@@ -457,7 +611,12 @@ namespace UI_NaviGO
                 "E-Wallet (Gopay, OVO, Dana)",
                 "Bayar di Tempat"
             });
-            cmbMetodePembayaran.SelectedIndex = 0;
+
+            // Set metode pembayaran sebelumnya jika ada
+            if (isEditMode && !string.IsNullOrEmpty(SelectedTicketData.UpdatedBookingData.PaymentMethod))
+                cmbMetodePembayaran.Text = SelectedTicketData.UpdatedBookingData.PaymentMethod;
+            else
+                cmbMetodePembayaran.SelectedIndex = 0;
 
             contentPanelBox.Controls.AddRange(new Control[] { lblMetode, cmbMetodePembayaran });
 
@@ -504,21 +663,60 @@ namespace UI_NaviGO
 
             contentPanelBox.Controls.AddRange(new Control[] { lblKeterangan, lblKet1, lblKet2, lblKet3 });
 
-            // ================== CONFIRM BUTTON ==================
-            Button btnPesan = new Button()
+            // ================== TOMBOL AKSI ==================
+            currentY += 50;
+
+            Panel panelTombol = new Panel()
+            {
+                Size = new Size(800, 60),
+                Location = new Point(50, currentY)
+            };
+
+            // Tombol Kembali
+            Button btnKembali = new Button()
+            {
+                Text = "Kembali",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                BackColor = Color.FromArgb(255, 150, 150),
+                ForeColor = Color.White,
+                Size = new Size(150, 45),
+                Location = new Point(100, 10),
+                FlatStyle = FlatStyle.Flat
+            };
+            btnKembali.FlatAppearance.BorderSize = 0;
+            btnKembali.Click += (s, e) =>
+            {
+                if (isEditMode)
+                {
+                    BackupDataSebelumKembali();
+                    // Kembali ke FormEditPemesanan
+                    this.Hide();
+                    new FormEditPemesanan(bookingId).Show();
+                }
+                else
+                {
+                    // Kembali ke form sebelumnya
+                    this.Hide();
+                    new UserPenumpang().Show();
+                }
+            };
+
+            // Tombol Konfirmasi - DIUBAH: Sekarang disimpan sebagai variabel class
+            btnPesan = new Button()
             {
                 Text = isEditMode ? "KONFIRMASI PERUBAHAN" : "KONFIRMASI PEMBAYARAN",
                 Font = new Font("Segoe UI", 12, FontStyle.Bold),
                 BackColor = Color.FromArgb(255, 204, 153),
                 ForeColor = Color.FromArgb(0, 102, 102),
                 Size = new Size(300, 50),
-                Location = new Point((contentPanelBox.Width - 300) / 2, currentY + 50),
+                Location = new Point(450, 5),
                 FlatStyle = FlatStyle.Flat
             };
             btnPesan.FlatAppearance.BorderSize = 0;
             btnPesan.Click += BtnPesan_Click;
 
-            contentPanelBox.Controls.Add(btnPesan);
+            panelTombol.Controls.AddRange(new Control[] { btnKembali, btnPesan });
+            contentPanelBox.Controls.Add(panelTombol);
 
             // Event handler untuk perubahan kelas
             cbKelas.SelectedIndexChanged += CbKelas_SelectedIndexChanged;
@@ -539,41 +737,30 @@ namespace UI_NaviGO
                 );
             };
 
-            // Jika mode edit, tampilkan informasi harga sebelumnya
-            if (isEditMode)
-            {
-                Label lblHargaAwal = new Label()
-                {
-                    Text = $"Harga Sebelumnya: Rp {hargaAwal:N0}",
-                    Font = new Font("Segoe UI", 10, FontStyle.Italic),
-                    ForeColor = Color.Gray,
-                    Location = new Point(50, currentY),
-                    AutoSize = true
-                };
-                contentPanelBox.Controls.Add(lblHargaAwal);
-                currentY += 30;
-
-                // Tambahkan label peringatan
-                Label lblPeringatan = new Label()
-                {
-                    Text = "Catatan: Jika harga baru lebih rendah, selisih tidak dapat dikembalikan. " +
-                          "Jika harga baru lebih tinggi, Anda perlu membayar selisihnya.",
-                    Font = new Font("Segoe UI", 9),
-                    ForeColor = Color.OrangeRed,
-                    Location = new Point(50, currentY),
-                    Size = new Size(800, 40),
-                    TextAlign = ContentAlignment.MiddleLeft
-                };
-                contentPanelBox.Controls.Add(lblPeringatan);
-                currentY += 50;
-            }
             Panel spacer = new Panel()
             {
-                Height = 50, // jarak putih
+                Height = 50,
                 Dock = DockStyle.Bottom,
                 BackColor = Color.Transparent
             };
-            
+            mainContentPanel.Controls.Add(spacer);
+        }
+
+        private RuteData GetRouteDataFromBooking()
+        {
+            Console.WriteLine($"UpdatedBookingData TotalPrice: {SelectedTicketData.UpdatedBookingData.TotalPrice}");
+            // Buat RuteData dari UpdatedBookingData untuk mode edit
+            return new RuteData
+            {
+                Rute = $"{SelectedTicketData.UpdatedBookingData.DepartureCity} - {SelectedTicketData.UpdatedBookingData.ArrivalCity}",
+                Kapal = SelectedTicketData.UpdatedBookingData.ShipName,
+                ID = SelectedTicketData.UpdatedBookingData.ShipId,
+                Tanggal = SelectedTicketData.UpdatedBookingData.DepartureDate,
+                JamBerangkat = SelectedTicketData.UpdatedBookingData.DepartureTime.ToString(@"hh\:mm"),
+                JamTiba = "00:00",
+                Harga = SelectedTicketData.UpdatedBookingData.TotalPrice,
+                ScheduleID = SelectedTicketData.UpdatedBookingData.ScheduleId
+            };
         }
 
         private void CbKelas_SelectedIndexChanged(object sender, EventArgs e)
@@ -583,6 +770,9 @@ namespace UI_NaviGO
 
         private void UpdateHargaBerdasarkanKelas()
         {
+            Console.WriteLine($"hargaDasar: {hargaDasar}");
+            Console.WriteLine($"Jumlah Dewasa: {jumlahDewasa}, Anak: {jumlahAnak}, Bayi: {jumlahBayi}");
+
             // Hitung tambahan harga berdasarkan kelas
             decimal tambahan = 0;
             if (cbKelas.Text == "Bisnis") tambahan = 50000;
@@ -604,9 +794,47 @@ namespace UI_NaviGO
 
             txtTotalKeseluruhan.Text = $"Rp {newTotalKeseluruhan:N0}";
 
+            // Update rincian perubahan harga untuk mode edit
+            if (isEditMode)
+            {
+                txtHargaBaru.Text = $"Rp {newTotalKeseluruhan:N0}";
+
+                // Hitung selisih (hanya positif, tidak ada refund)
+                decimal selisih = newTotalKeseluruhan - hargaAwal;
+                if (selisih < 0) selisih = 0;
+
+                txtSelisih.Text = $"Rp {selisih:N0}";
+
+                // UPDATE TOMBOL BERDASARKAN SELISIH
+                UpdateTeksTombol(selisih);
+            }
+
             // Simpan data kelas yang dipilih
             SelectedTicketData.KelasDipilih = cbKelas.Text;
             SelectedTicketData.HargaKelas = tambahan;
+        }
+
+        // METHOD BARU: Update teks tombol berdasarkan selisih
+        private void UpdateTeksTombol(decimal selisih)
+        {
+            if (isEditMode)
+            {
+                if (selisih > 0)
+                {
+                    btnPesan.Text = "KONFIRMASI PEMBAYARAN";
+                    btnPesan.BackColor = Color.FromArgb(255, 150, 100); // Warna oranye untuk pembayaran
+                }
+                else
+                {
+                    btnPesan.Text = "KONFIRMASI PERUBAHAN";
+                    btnPesan.BackColor = Color.FromArgb(255, 204, 153); // Warna kuning untuk perubahan biasa
+                }
+            }
+            else
+            {
+                btnPesan.Text = "KONFIRMASI PEMBAYARAN";
+                btnPesan.BackColor = Color.FromArgb(255, 204, 153);
+            }
         }
 
         private void UpdateTextBoxHarga(string kategori, decimal harga, decimal total)
@@ -641,6 +869,10 @@ namespace UI_NaviGO
 
         private void BtnPesan_Click(object sender, EventArgs e)
         {
+            if (!ValidasiDataPenumpang())
+            {
+                return;
+            }
             if (cmbMetodePembayaran.SelectedItem == null)
             {
                 MessageBox.Show("Pilih metode pembayaran terlebih dahulu!", "Peringatan",
@@ -653,21 +885,62 @@ namespace UI_NaviGO
 
             decimal totalAkhir = HitungTotalAkhir();
 
-            DialogResult result = MessageBox.Show(
-                $"Konfirmasi pembayaran sebesar Rp {totalAkhir:N0} via {metodePembayaran}?",
-                "Konfirmasi Pembayaran",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result == DialogResult.Yes)
+            if (isEditMode)
             {
-                KonfirmasiPembayaran();
+                decimal selisih = totalAkhir - hargaAwal;
+                if (selisih < 0) selisih = 0;
+
+                // PESAN KONFIRMASI YANG LEBIH INFORMATIF
+                string message = "";
+                if (selisih > 0)
+                {
+                    message = $"Konfirmasi pembayaran selisih?\n\n" +
+                             $"Harga sebelumnya: Rp {hargaAwal:N0}\n" +
+                             $"Harga baru: Rp {totalAkhir:N0}\n" +
+                             $"Selisih yang harus dibayar: Rp {selisih:N0}\n\n" +
+                             $"Metode pembayaran: {metodePembayaran}";
+                }
+                else
+                {
+                    message = $"Konfirmasi perubahan tiket?\n\n" +
+                             $"Tidak ada tambahan biaya.\n" +
+                             $"Harga tetap: Rp {hargaAwal:N0}\n\n" +
+                             $"Metode: {metodePembayaran}";
+                }
+
+                DialogResult result = MessageBox.Show(message,
+                    selisih > 0 ? "Konfirmasi Pembayaran Selisih" : "Konfirmasi Perubahan Tiket",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    KonfirmasiPembayaranEditMode();
+                }
+            }
+            else
+            {
+                DialogResult result = MessageBox.Show(
+                    $"Konfirmasi pembayaran sebesar Rp {totalAkhir:N0} via {metodePembayaran}?",
+                    "Konfirmasi Pembayaran",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    KonfirmasiPembayaranNormal();
+                }
             }
         }
 
         private decimal HitungTotalAkhir()
         {
-            var r = SelectedTicketData.SelectedRute;
+            if (!ValidasiDataPenumpang())
+            {
+                return 0;
+            }
+            dynamic r = isEditMode ? (dynamic)GetRouteDataFromBooking()
+                       : (dynamic)SelectedTicketData.SelectedRute;
 
             decimal hargaDasar = r.Harga;
             decimal tambahan = SelectedTicketData.HargaKelas;
@@ -685,7 +958,8 @@ namespace UI_NaviGO
                    (hargaBayi * jumlahBayi);
         }
 
-        private void KonfirmasiPembayaran()
+
+private void KonfirmasiPembayaranNormal()
         {
             decimal totalAkhir = HitungTotalAkhir();
             string metodePembayaran = cmbMetodePembayaran.SelectedItem.ToString();
@@ -696,116 +970,197 @@ namespace UI_NaviGO
                 {
                     conn.Open();
 
-                    if (isEditMode)
+                    int bookingCode = GenerateBookingID();
+
+                    // INSERT BOOKING BARU
+                    string insertBooking = @"
+                        INSERT INTO bookings 
+                        (booking_id, user_id, schedule_id, total_price, payment_method, 
+                         payment_status, selected_class, class_surcharge, created_at)
+                        VALUES 
+                        (@booking_id, @user_id, @schedule_id, @total_price, @payment_method, 
+                         'paid', @selected_class, @class_surcharge, CURRENT_TIMESTAMP)
+                        RETURNING booking_id;";
+
+                    string insertPassengerSql = @"
+                        INSERT INTO passengers (
+                            booking_id, full_name, category, nik
+                        ) VALUES (
+                            @booking_id, @full_name, @category, @nik
+                        );";
+
+                    using (var cmd = new NpgsqlCommand(insertBooking, conn))
                     {
-                        // UPDATE BOOKING UNTUK RESCHEDULE
-                        string updateBooking = @"
-                    UPDATE bookings 
-                    SET payment_status = 'paid',
-                        payment_method = @method,
-                        total_price = @total,
-                        selected_class = @class,
-                        class_surcharge = @surcharge,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE booking_id = @booking_id;";
+                        cmd.Parameters.AddWithValue("booking_id", bookingCode);
+                        cmd.Parameters.AddWithValue("user_id", SelectedTicketData.UserID);
+                        cmd.Parameters.AddWithValue("schedule_id", SelectedTicketData.SelectedRute.ScheduleID);
+                        cmd.Parameters.AddWithValue("total_price", totalAkhir);
+                        cmd.Parameters.AddWithValue("payment_method", metodePembayaran);
+                        cmd.Parameters.AddWithValue("selected_class", SelectedTicketData.KelasDipilih);
+                        cmd.Parameters.AddWithValue("class_surcharge", SelectedTicketData.HargaKelas);
 
-                        using (var cmd = new NpgsqlCommand(updateBooking, conn))
+                        int bookingId = Convert.ToInt32(cmd.ExecuteScalar());
+
+                        // UPDATE AVAILABLE SEATS
+                        string updateSeats = @"
+                            UPDATE schedules 
+                            SET available_seats = available_seats - @penumpang_count
+                            WHERE schedule_id = @schedule_id;";
+
+                        using (var cmdSeats = new NpgsqlCommand(updateSeats, conn))
                         {
-                            cmd.Parameters.AddWithValue("method", metodePembayaran);
-                            cmd.Parameters.AddWithValue("total", totalAkhir);
-                            cmd.Parameters.AddWithValue("class", SelectedTicketData.KelasDipilih);
-                            cmd.Parameters.AddWithValue("surcharge", SelectedTicketData.HargaKelas);
-                            cmd.Parameters.AddWithValue("booking_id", SelectedTicketData.BookingID);
+                            cmdSeats.Parameters.AddWithValue("penumpang_count", SelectedTicketData.Penumpang.Count);
+                            cmdSeats.Parameters.AddWithValue("schedule_id", SelectedTicketData.SelectedRute.ScheduleID);
+                            cmdSeats.ExecuteNonQuery();
+                        }
 
-                            int rowsAffected = cmd.ExecuteNonQuery();
-
-                            if (rowsAffected > 0)
+                        // INSERT PENUMPANG
+                        using (var trans = conn.BeginTransaction())
+                        {
+                            try
                             {
-                                MessageBox.Show("Perubahan tiket berhasil! Tiket Anda telah diperbarui.",
-                                                "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                foreach (var p in SelectedTicketData.Penumpang)
+                                {
+                                    using (var insertP = new NpgsqlCommand(insertPassengerSql, conn, trans))
+                                    {
+                                        insertP.Parameters.AddWithValue("booking_id", bookingId);
+                                        insertP.Parameters.AddWithValue("full_name", p.Nama);
+                                        insertP.Parameters.AddWithValue("category", p.Kategori);
+                                        insertP.Parameters.AddWithValue("nik", p.NIK ?? "");
 
-                                this.Hide();
-                                
+                                        insertP.ExecuteNonQuery();
+                                    }
+                                }
+
+                                trans.Commit();
+                            }
+                            catch
+                            {
+                                trans.Rollback();
+                                throw;
                             }
                         }
+
+                        MessageBox.Show("Pembayaran berhasil! Tiket Anda telah dikonfirmasi.",
+                                        "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        this.Hide();
+                        new UserSuccess(bookingId).Show();
                     }
-                    else
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Gagal memproses pembayaran:\n{ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BackupDataSebelumKembali()
+        {
+            try
+            {
+                // Pastikan data penumpang tersimpan di SelectedTicketData
+                if (SelectedTicketData.TiketReschedule != null && SelectedTicketData.Penumpang != null)
+                {
+                    SelectedTicketData.TiketReschedule.Penumpang = new List<PenumpangData>(SelectedTicketData.Penumpang);
+                }
+
+                // Simpan juga di UpdatedBookingData jika ada
+                if (SelectedTicketData.UpdatedBookingData != null && SelectedTicketData.Penumpang != null)
+                {
+                    // Anda bisa menambahkan logika penyimpanan tambahan di sini jika diperlukan
+                }
+
+                // Debug: Tampilkan jumlah penumpang yang disimpan
+                Console.WriteLine($"Data disimpan - Jumlah penumpang: {SelectedTicketData.Penumpang?.Count ?? 0}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error backup data: {ex.Message}");
+            }
+        }
+
+        // METHOD BARU: Validasi data penumpang
+        private bool ValidasiDataPenumpang()
+        {
+            if (SelectedTicketData.Penumpang == null || SelectedTicketData.Penumpang.Count == 0)
+            {
+                if (isEditMode && SelectedTicketData.TiketReschedule != null)
+                {
+                    // Coba pulihkan dari TiketReschedule
+                    SelectedTicketData.Penumpang = new List<PenumpangData>(SelectedTicketData.TiketReschedule.Penumpang);
+                }
+
+                if (SelectedTicketData.Penumpang == null || SelectedTicketData.Penumpang.Count == 0)
+                {
+                    MessageBox.Show("Data penumpang tidak ditemukan. Silakan ulangi proses edit.", "Data Tidak Valid",
+                                  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+
+
+        private void KonfirmasiPembayaranEditMode()
+        {
+            decimal totalAkhir = HitungTotalAkhir();
+            string metodePembayaran = cmbMetodePembayaran.SelectedItem.ToString();
+
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+
+                    // Hitung selisih harga
+                    decimal selisih = totalAkhir - hargaAwal;
+                    if (selisih < 0) selisih = 0;
+
+                    // UPDATE BOOKING UNTUK EDIT
+                    string updateBooking = @"
+                        UPDATE bookings 
+                        SET schedule_id = @schedule_id,
+                            total_price = @total_price,
+                            selected_class = @selected_class,
+                            class_surcharge = @class_surcharge,
+                            additional_payment = @additional_payment,
+                            payment_method = @payment_method,
+                            updated_date = CURRENT_TIMESTAMP
+                        WHERE booking_id = @booking_id";
+
+                    using (var cmd = new NpgsqlCommand(updateBooking, conn))
                     {
-                        int bookingCode = GenerateBookingID(); // generate kode acak
-                        // INSERT BOOKING BARU
-                        string insertBooking = @"
-    INSERT INTO bookings 
-    (booking_id, user_id, schedule_id, total_price, payment_method, 
-     payment_status, selected_class, class_surcharge, created_at)
-    VALUES 
-    (@booking_id, @user_id, @schedule_id, @total_price, @payment_method, 
-     'paid', @selected_class, @class_surcharge, CURRENT_TIMESTAMP)
-    RETURNING booking_id;
-";
+                        cmd.Parameters.AddWithValue("@schedule_id", SelectedTicketData.UpdatedBookingData.ScheduleId);
+                        cmd.Parameters.AddWithValue("@total_price", totalAkhir);
+                        cmd.Parameters.AddWithValue("@selected_class", SelectedTicketData.KelasDipilih);
+                        cmd.Parameters.AddWithValue("@class_surcharge", SelectedTicketData.HargaKelas);
+                        cmd.Parameters.AddWithValue("@additional_payment", selisih);
+                        cmd.Parameters.AddWithValue("@payment_method", metodePembayaran);
+                        cmd.Parameters.AddWithValue("@booking_id", bookingId);
 
-                        string insertPassengerSql = @"
-                    INSERT INTO passengers (
-                        booking_id, full_name, category, nik
-                    ) VALUES (
-                        @booking_id, @full_name, @category, @nik
-                    );";
+                        int rowsAffected = cmd.ExecuteNonQuery();
 
-                        using (var cmd = new NpgsqlCommand(insertBooking, conn))
+                        if (rowsAffected > 0)
                         {
-                            cmd.Parameters.AddWithValue("booking_id", bookingCode);
-                            cmd.Parameters.AddWithValue("user_id", SelectedTicketData.UserID);
-                            cmd.Parameters.AddWithValue("schedule_id", SelectedTicketData.SelectedRute.ScheduleID);
-                            cmd.Parameters.AddWithValue("total_price", totalAkhir);
-                            cmd.Parameters.AddWithValue("payment_method", metodePembayaran);
-                            cmd.Parameters.AddWithValue("selected_class", SelectedTicketData.KelasDipilih);
-                            cmd.Parameters.AddWithValue("class_surcharge", SelectedTicketData.HargaKelas);
+                            // Update data penumpang
+                            UpdatePenumpangEditMode(conn);
 
-                            // CAST booking_id dengan aman
-                            int bookingId = Convert.ToInt32(cmd.ExecuteScalar());
+                            string successMessage = selisih > 0 ?
+                                $"Perubahan tiket dan Pembayaran berhasil!\n\nTiket Anda telah dikonfirmasi." :
+                                "Perubahan tiket berhasil!\n\nTidak ada tambahan biaya.";
 
+                            MessageBox.Show(successMessage, "Sukses",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                            // UPDATE AVAILABLE SEATS
-                            string updateSeats = @"
-                        UPDATE schedules 
-                        SET available_seats = available_seats - @penumpang_count
-                        WHERE schedule_id = @schedule_id;";
-
-                            using (var cmdSeats = new NpgsqlCommand(updateSeats, conn))
+                            // Reset additional_payment jika sudah dibayar
+                            if (selisih > 0)
                             {
-                                cmdSeats.Parameters.AddWithValue("penumpang_count", SelectedTicketData.Penumpang.Count);
-                                cmdSeats.Parameters.AddWithValue("schedule_id", SelectedTicketData.SelectedRute.ScheduleID);
-                                cmdSeats.ExecuteNonQuery();
+                                ResetAdditionalPayment(conn);
                             }
 
-                            // INSERT PENUMPANG
-                            using (var trans = conn.BeginTransaction())
-                            {
-                                try
-                                {
-                                    foreach (var p in SelectedTicketData.Penumpang)
-                                    {
-                                        using (var insertP = new NpgsqlCommand(insertPassengerSql, conn, trans))
-                                        {
-                                            insertP.Parameters.AddWithValue("booking_id", bookingId);
-                                            insertP.Parameters.AddWithValue("full_name", p.Nama);
-                                            insertP.Parameters.AddWithValue("category", p.Kategori);
-                                            insertP.Parameters.AddWithValue("nik", p.NIK ?? "");
-
-                                            insertP.ExecuteNonQuery();
-                                        }
-                                    }
-
-                                    trans.Commit();
-                                }
-                                catch
-                                {
-                                    trans.Rollback();
-                                    throw;
-                                }
-                            }
-
-                            MessageBox.Show("Pembayaran berhasil! Tiket Anda telah dikonfirmasi.",
-                                            "Sukses", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                             this.Hide();
                             new UserSuccess(bookingId).Show();
@@ -815,11 +1170,48 @@ namespace UI_NaviGO
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Gagal memproses pembayaran:\n{ex.Message}",
-                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Gagal memproses perubahan: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        
+        }
 
+        private void UpdatePenumpangEditMode(NpgsqlConnection conn)
+        {
+            // Hapus penumpang lama
+            string deleteSql = "DELETE FROM passengers WHERE booking_id = @booking_id";
+            using (var cmdDelete = new NpgsqlCommand(deleteSql, conn))
+            {
+                cmdDelete.Parameters.AddWithValue("@booking_id", bookingId);
+                cmdDelete.ExecuteNonQuery();
+            }
+
+            // Insert penumpang baru
+            string insertSql = @"
+                INSERT INTO passengers (booking_id, full_name, category, nik) 
+                VALUES (@booking_id, @full_name, @category, @nik)";
+
+            foreach (var penumpang in SelectedTicketData.Penumpang)
+            {
+                using (var cmdInsert = new NpgsqlCommand(insertSql, conn))
+                {
+                    cmdInsert.Parameters.AddWithValue("@booking_id", bookingId);
+                    cmdInsert.Parameters.AddWithValue("@full_name", penumpang.Nama);
+                    cmdInsert.Parameters.AddWithValue("@category", penumpang.Kategori);
+                    cmdInsert.Parameters.AddWithValue("@nik", penumpang.NIK);
+                    cmdInsert.ExecuteNonQuery();
+                }
+            }
+        }
+
+        private void ResetAdditionalPayment(NpgsqlConnection conn)
+        {
+            // Reset additional_payment ke 0 setelah pembayaran
+            string resetSql = "UPDATE bookings SET additional_payment = 0 WHERE booking_id = @booking_id";
+            using (var cmdReset = new NpgsqlCommand(resetSql, conn))
+            {
+                cmdReset.Parameters.AddWithValue("@booking_id", bookingId);
+                cmdReset.ExecuteNonQuery();
+            }
         }
 
         private int GenerateBookingID()
@@ -833,7 +1225,7 @@ namespace UI_NaviGO
                 conn.Open();
                 while (!isUnique)
                 {
-                    bookingId = rnd.Next(100000, 999999); // range 6 digit, bisa disesuaikan
+                    bookingId = rnd.Next(100000, 999999);
                     string checkSql = "SELECT COUNT(*) FROM bookings WHERE booking_id = @id";
                     using (var cmd = new NpgsqlCommand(checkSql, conn))
                     {
@@ -847,9 +1239,8 @@ namespace UI_NaviGO
                     }
                 }
             }
-            return 0; // seharusnya tidak pernah sampai sini
+            return 0;
         }
-
 
         private Image SetImageOpacity(Image image, float opacity)
         {

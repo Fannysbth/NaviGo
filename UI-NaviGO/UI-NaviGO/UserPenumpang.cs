@@ -20,22 +20,13 @@ namespace UI_NaviGO
         private bool isEditMode;
         private RiwayatTiket tiketEdit;
 
-        private string connString =
-    "Host=aws-1-ap-southeast-1.pooler.supabase.com;" +
-    "Port=5432;" +
-    "Username=postgres.zsktvbvfquecdmndgyrz;" +
-    "Password=agathahusna;" +
-    "Database=postgres;" +
-    "Ssl Mode=Require;" +
-    "Trust Server Certificate=true;";
-
-
         public UserPenumpang(bool isEditMode = false)
         {
             this.isEditMode = isEditMode;
 
             if (isEditMode)
             {
+                // PERBAIKAN: Ambil data dari SelectedTicketData.TiketReschedule
                 this.tiketEdit = SelectedTicketData.TiketReschedule;
             }
 
@@ -241,7 +232,7 @@ namespace UI_NaviGO
             // ===== header =====
             Panel headerPanel = new Panel()
             {
-                Location = new Point(80, 60), // di atas panelList
+                Location = new Point(80, 60),
                 Size = new Size(860, 25),
                 BackColor = Color.Transparent
             };
@@ -256,15 +247,13 @@ namespace UI_NaviGO
             // ===== panelList =====
             panelList = new FlowLayoutPanel()
             {
-                Location = new Point(80, 70), // di bawah header
+                Location = new Point(80, 70),
                 Size = new Size(860, 330),
                 AutoScroll = true,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false
             };
             card.Controls.Add(panelList);
-
-
 
             // ===== BUTTONS =====
             btnTambah = new Button()
@@ -292,7 +281,7 @@ namespace UI_NaviGO
                 ForeColor = Color.FromArgb(0, 85, 92)
             };
             btnNext.FlatAppearance.BorderSize = 0;
-            btnNext.Click += (s, e) => SimpanDanKePembayaran();
+            btnNext.Click += (s, e) => SimpanDanKembali();
 
             card.Controls.AddRange(new Control[] { btnTambah, btnNext });
             mainPanel.Controls.Add(card);
@@ -308,28 +297,87 @@ namespace UI_NaviGO
                 );
             };
 
-            // ===== FIX: Reset penumpang saat bukan edit mode =====
-            if (!isEditMode)
-            {
-                SelectedTicketData.Penumpang = new List<PenumpangData>();
-            }
+            // ===== PERBAIKAN: Load data penumpang =====
+            LoadDataPenumpang();
+        }
 
-            // ===== LOAD PENUMPANG SESUAI KONDISI =====
-            if (isEditMode && tiketEdit != null && tiketEdit.Penumpang != null)
+        // METHOD BARU: Load data penumpang berdasarkan mode
+        private void LoadDataPenumpang()
+        {
+            panelList.Controls.Clear();
+
+            if (isEditMode)
             {
-                // (Implementasi parsing bisa kamu tambah)
-                foreach (var p in SelectedTicketData.Penumpang)
+                // PERBAIKAN: Cek beberapa sumber data untuk mode edit
+                if (tiketEdit != null && tiketEdit.Penumpang != null && tiketEdit.Penumpang.Count > 0)
                 {
-                    TambahFormPenumpang(p.Kategori, p.Nama, p.NIK);
+                    // Sumber 1: Dari TiketReschedule
+                    foreach (var p in tiketEdit.Penumpang)
+                    {
+                        TambahFormPenumpang(p.Kategori, p.Nama, p.NIK);
+                    }
+                }
+                else if (SelectedTicketData.Penumpang != null && SelectedTicketData.Penumpang.Count > 0)
+                {
+                    // Sumber 2: Dari SelectedTicketData.Penumpang
+                    foreach (var p in SelectedTicketData.Penumpang)
+                    {
+                        TambahFormPenumpang(p.Kategori, p.Nama, p.NIK);
+                    }
+                }
+                else
+                {
+                    // Sumber 3: Load dari database berdasarkan booking ID
+                    LoadPenumpangDariDatabase();
                 }
             }
             else
             {
-                // default dewasa
+                // Mode normal (booking baru)
                 for (int i = 0; i < Math.Max(1, SelectedTicketData.JumlahDewasa); i++)
                 {
                     TambahFormPenumpang("Dewasa");
                 }
+            }
+        }
+
+        // METHOD BARU: Load data penumpang dari database untuk mode edit
+        private void LoadPenumpangDariDatabase()
+        {
+            try
+            {
+                if (SelectedTicketData.TiketReschedule?.BookingID == null) return;
+
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+                    string query = @"
+                        SELECT full_name, category, nik 
+                        FROM passengers 
+                        WHERE booking_id = @bookingId";
+
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@bookingId", SelectedTicketData.TiketReschedule.BookingID);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string nama = reader.GetString(reader.GetOrdinal("full_name"));
+                                string kategori = reader.GetString(reader.GetOrdinal("category"));
+                                string nik = reader.GetString(reader.GetOrdinal("nik"));
+
+                                TambahFormPenumpang(kategori, nama, nik);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading passenger data: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -357,18 +405,18 @@ namespace UI_NaviGO
             {
                 Location = new Point(160, 15),
                 Width = 260,
-                Font = new Font("Segoe UI", 9)
+                Font = new Font("Segoe UI", 9),
+                Text = namaDefault
             };
-            txtNama.Text = namaDefault;
             row.Controls.Add(txtNama);
 
             TextBox txtNIK = new TextBox()
             {
                 Location = new Point(440, 15),
                 Width = 220,
-                Font = new Font("Segoe UI", 9)
+                Font = new Font("Segoe UI", 9),
+                Text = nikDefault
             };
-            txtNIK.Text = nikDefault;
             row.Controls.Add(txtNIK);
 
             Button btnHapus = new Button()
@@ -391,19 +439,27 @@ namespace UI_NaviGO
             panelList.Controls.Add(row);
         }
 
-        // ============== SIMPAN & LANJUT ==============
-        private void SimpanDanKePembayaran()
+        // ============== SIMPAN & KEMBALI ==============
+        private void SimpanDanKembali()
         {
-            // 1. Validasi
             if (!ValidasiDataPenumpang())
                 return;
 
-            // 2. Simpan ke SelectedTicketData (TIDAK ke database)
+            // Simpan data form ke SelectedTicketData
             SimpanDataPenumpangDariUI();
 
-            // 3. Lanjut ke pembayaran
-            this.Hide();
-            new UserPembayaran().Show();
+            if (isEditMode)
+            {
+                // Untuk mode edit, tutup form dengan DialogResult.OK
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            else
+            {
+                // Mode normal (booking baru) - lanjut ke pembayaran
+                this.Hide();
+                new UserPembayaran(false).Show();
+            }
         }
 
         private bool ValidasiDataPenumpang()
@@ -465,9 +521,6 @@ namespace UI_NaviGO
             }
         }
 
-        
-
-        // ===== Utility: Set image opacity =====
         private Image SetImageOpacity(Image image, float opacity)
         {
             if (image == null) return null;

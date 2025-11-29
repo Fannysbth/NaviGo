@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Windows.Forms;
 
 
@@ -42,11 +43,12 @@ namespace UI_NaviGO
                 {
                     conn.Open();
 
-                    // Query tunggal dengan JOIN untuk mengambil semua data sekaligus
+                    // Query dengan payment_status
                     string sql = @"
                 SELECT 
                     b.booking_id,
                     b.booking_reference,
+                    b.booking_date,
                     r.route_name,
                     s.departure_date,
                     s.departure_time,
@@ -54,6 +56,7 @@ namespace UI_NaviGO
                     b.selected_class,
                     b.total_price,
                     p.payment_method,
+                    b.payment_status,  
                     STRING_AGG(pass.full_name || 
                               CASE WHEN pass.category IS NOT NULL AND pass.category != '' 
                                    THEN ' (' || pass.category || ')' 
@@ -67,7 +70,8 @@ namespace UI_NaviGO
                 LEFT JOIN passengers pass ON b.booking_id = pass.booking_id
                 WHERE b.user_id = @userId
                 GROUP BY b.booking_id, b.booking_reference, r.route_name, s.departure_date, 
-                         s.departure_time, u.name, b.selected_class, b.total_price, p.payment_method
+                         s.departure_time, u.name, b.selected_class, b.total_price, 
+                         p.payment_method, b.payment_status  -- TAMBAHKAN payment_status DI GROUP BY
                 ORDER BY b.booking_date DESC;
             ";
 
@@ -79,6 +83,43 @@ namespace UI_NaviGO
                         {
                             while (reader.Read())
                             {
+                                // Ambil string agregasi penumpang
+                                string penumpangAgg = reader.IsDBNull(reader.GetOrdinal("penumpang_list"))
+                                    ? ""
+                                    : reader.GetString(reader.GetOrdinal("penumpang_list"));
+
+                                // Parsing string → List<PenumpangData>
+                                var listPenumpang = new List<PenumpangData>();
+
+                                if (!string.IsNullOrWhiteSpace(penumpangAgg))
+                                {
+                                    // Format: "Budi (Dewasa), Siti (Anak)"
+                                    var split = penumpangAgg.Split(',');
+
+                                    foreach (var item in split)
+                                    {
+                                        string trimmed = item.Trim();
+                                        if (trimmed.Length == 0) continue;
+
+                                        string nama = trimmed;
+                                        string kategori = "Lainnya";
+
+                                        // Cari teks dalam tanda kurung
+                                        int idx = trimmed.LastIndexOf("(");
+                                        if (idx > 0)
+                                        {
+                                            nama = trimmed.Substring(0, idx).Trim();
+                                            kategori = trimmed.Substring(idx + 1).Replace(")", "").Trim();
+                                        }
+
+                                        listPenumpang.Add(new PenumpangData
+                                        {
+                                            Nama = nama,
+                                            Kategori = kategori
+                                        });
+                                    }
+                                }
+
                                 var tiket = new RiwayatTiket
                                 {
                                     BookingID = reader.GetInt32(reader.GetOrdinal("booking_id")),
@@ -86,17 +127,18 @@ namespace UI_NaviGO
                                         ? $"BK-{reader.GetInt32(reader.GetOrdinal("booking_id"))}"
                                         : reader.GetString(reader.GetOrdinal("booking_reference")),
                                     Rute = reader.GetString(reader.GetOrdinal("route_name")),
-                                    TanggalPesan = reader.GetDateTime(reader.GetOrdinal("departure_date")),
+                                    TanggalPesan = reader.GetDateTime(reader.GetOrdinal("booking_date")),
                                     TanggalBerangkat = reader.GetDateTime(reader.GetOrdinal("departure_date")),
                                     Waktu = reader.GetTimeSpan(reader.GetOrdinal("departure_time")).ToString(@"hh\:mm"),
-                                    Penumpang = reader.IsDBNull(reader.GetOrdinal("penumpang_list"))
-                                        ? ""
-                                        : reader.GetString(reader.GetOrdinal("penumpang_list")),
+                                    Penumpang = listPenumpang,
                                     Kelas = reader.GetString(reader.GetOrdinal("selected_class")),
                                     TotalHarga = reader.GetDecimal(reader.GetOrdinal("total_price")),
                                     MetodePembayaran = reader.IsDBNull(reader.GetOrdinal("payment_method"))
                                         ? ""
                                         : reader.GetString(reader.GetOrdinal("payment_method")),
+                                    PaymentStatus = reader.IsDBNull(reader.GetOrdinal("payment_status"))
+                                        ? "unknown"
+                                        : reader.GetString(reader.GetOrdinal("payment_status")), // TAMBAHKAN INI
                                     Kapal = "Belum Tersedia",
                                     Status = "paid"
                                 };
@@ -112,6 +154,8 @@ namespace UI_NaviGO
                 MessageBox.Show($"Gagal mengambil data riwayat: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        
 
 
         private void InitializeUI()
@@ -522,6 +566,7 @@ namespace UI_NaviGO
             Color badgeConfirmed = Color.FromArgb(47, 160, 68);
             Color badgeDone = Color.FromArgb(77, 124, 133);
             Color badgeCancelled = Color.FromArgb(209, 100, 58);
+            Color badgeRefunded = Color.FromArgb(150, 150, 150); // Warna untuk status refunded
 
             Panel card = new Panel
             {
@@ -540,8 +585,15 @@ namespace UI_NaviGO
 
             // Tentukan warna badge berdasarkan status
             Color badgeColor = badgeConfirmed;
-            if (tiket.Status == "Selesai") badgeColor = badgeDone;
-            else if (tiket.Status == "Cancelled") badgeColor = badgeCancelled;
+            string statusText = tiket.PaymentStatus;
+
+            if (tiket.PaymentStatus?.ToLower() == "refunded")
+            {
+                badgeColor = badgeRefunded;
+                statusText = "Refunded";
+            }
+            else if (tiket.PaymentStatus?.ToLower() == "refunded")
+                badgeColor = badgeDone;
 
             Panel badge = new Panel
             {
@@ -552,7 +604,7 @@ namespace UI_NaviGO
             };
             Label lblBadge = new Label
             {
-                Text = tiket.Status,
+                Text = statusText,
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -571,20 +623,20 @@ namespace UI_NaviGO
 
             Label lblTotal = new Label { Text = $"Total: {tiket.TotalHarga.ToString("C0")}", Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(34, 139, 34), AutoSize = true, Location = new Point(8, 70) };
 
-            // TOMBOL DOWNLOAD TIKET - SEPERTI DI USERSUCCESS
+            // TOMBOL DOWNLOAD TIKET
             Button btnDownload = new Button
             {
                 Text = "Download E-Ticket",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Size = new Size(150, 35),
-                Location = new Point(650, 65),
+                Location = new Point(530, 65),
                 BackColor = Color.FromArgb(255, 204, 153),
                 ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
                 Tag = tiket
             };
             btnDownload.FlatAppearance.BorderSize = 0;
-           
+
             btnDownload.Click += (s, e) =>
             {
                 var selectedTiket = (RiwayatTiket)((Button)s).Tag;
@@ -592,13 +644,13 @@ namespace UI_NaviGO
                 formKirimEmail.ShowDialog();
             };
 
-            // TOMBOL DETAIL - SEPERTI DI USERPEMBAYARAN TAPI HANYA BACA
+            // TOMBOL DETAIL
             Button btnDetail = new Button
             {
                 Text = "Lihat Detail",
                 Font = new Font("Segoe UI", 9F),
                 Size = new Size(100, 35),
-                Location = new Point(810, 65),
+                Location = new Point(690, 65),
                 BackColor = Color.FromArgb(180, 220, 215),
                 ForeColor = Color.FromArgb(0, 85, 92),
                 FlatStyle = FlatStyle.Flat,
@@ -612,11 +664,66 @@ namespace UI_NaviGO
                 formdetail.ShowDialog();
             };
 
+            // TOMBOL EDIT TIKET
+            Button btnEdit = new Button
+            {
+                Text = "Edit Ticket",
+                Font = new Font("Segoe UI", 9F),
+                Size = new Size(100, 35),
+                Location = new Point(810, 65),
+                BackColor = Color.FromArgb(255, 230, 180),
+                ForeColor = Color.FromArgb(120, 60, 0),
+                FlatStyle = FlatStyle.Flat,
+                Tag = tiket
+            };
+            btnEdit.FlatAppearance.BorderSize = 0;
+
+            btnEdit.Click += (s, e) =>
+            {
+                var selectedTiket = (RiwayatTiket)((Button)s).Tag;
+                FormEditPemesanan fr = new FormEditPemesanan(selectedTiket.BookingID);
+                this.Hide();
+                fr.Show();
+            };
+
+            // TOMBOL REFUND - HANYA MUNCUL JIKA PAYMENT_STATUS = "paid"
+            Button btnRefund = new Button
+            {
+                Text = "Refund",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(100, 35),
+                Location = new Point(410, 65), // Posisi sama dengan tombol edit
+                BackColor = Color.FromArgb(220, 80, 60),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Tag = tiket,
+                Visible = (tiket.PaymentStatus?.ToLower() == "paid") // Hanya tampil jika status paid
+            };
+            btnRefund.FlatAppearance.BorderSize = 0;
+
+            btnRefund.Click += (s, e) =>
+            {
+                var selectedTiket = (RiwayatTiket)((Button)s).Tag;
+
+                // Konfirmasi refund
+                DialogResult result = MessageBox.Show(
+                    $"Apakah Anda yakin ingin melakukan refund untuk tiket {selectedTiket.ID}?\n\nTotal yang akan direfund: {selectedTiket.TotalHarga.ToString("C0")}",
+                    "Konfirmasi Refund",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    UpdatePaymentStatusToRefund(selectedTiket.BookingID);
+                    RefreshTampilan(); // Refresh untuk memperbarui tampilan
+                }
+            };
+
             
 
             Label lblBooked = new Label { Text = $"Dipesan pada: {tiket.TanggalPesan:dd MMMM yyyy}", Font = new Font("Segoe UI", 8F), ForeColor = Color.LightGray, AutoSize = true, Location = new Point(8, 100) };
 
-            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail,  lblBooked });
+            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail, btnEdit, btnRefund, lblBooked });
 
             outer.Controls.Add(inner);
             outer.Controls.Add(header);
@@ -625,7 +732,47 @@ namespace UI_NaviGO
             return card;
         }
 
-        
+        private void UpdatePaymentStatusToRefund(int bookingId)
+        {
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+                    string sql = "UPDATE bookings SET payment_status = 'refunded' WHERE booking_id = @bookingId";
+
+                    using (var cmd = new Npgsql.NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("bookingId", bookingId);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            // Update juga di local data
+                            var tiket = daftarRiwayat.FirstOrDefault(t => t.BookingID == bookingId);
+                            if (tiket != null)
+                            {
+                                tiket.PaymentStatus = "refunded";
+                                tiket.Status = "refunded";
+                            }
+                            MessageBox.Show("Refund berhasil! Status pembayaran telah diupdate.", "Success",
+                                          MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Gagal update status refund.", "Error",
+                                          MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error update status refund: {ex.Message}", "Error",
+                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
 
 
 

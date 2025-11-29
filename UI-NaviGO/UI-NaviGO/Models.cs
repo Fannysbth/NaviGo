@@ -6,11 +6,9 @@ using System.Windows.Forms;
 namespace UI_NaviGO
 {
     // ===============================
-    // 🔹 KELAS MODEL OOP
+    // 🔹 KELAS MODEL OOP - PERBAIKAN
     // ===============================
 
-    // 🧱 Base Class: Encapsulation
-    // RuteKapal.cs
     public class RuteKapal
     {
         public string ID { get; set; }
@@ -21,7 +19,8 @@ namespace UI_NaviGO
         public string JamTiba { get; set; }
         public string Transit { get; set; }
         public decimal Harga { get; set; }
-        public int ScheduleID { get; set; } // TAMBAH INI
+        public string PaymentStatus { get; set; }
+        public int ScheduleID { get; set; }
         public string ShipID { get; set; }
 
         public RuteKapal(string id, string kapal, string rute, DateTime tanggal,
@@ -53,10 +52,24 @@ namespace UI_NaviGO
         {
             return $"{Kapal} | {Rute} | {Tanggal:dd MMM yyyy} | {JamBerangkat}-{JamTiba} | Harga: {Harga}";
         }
-
     }
 
-    // 🧱 Subclass: Inheritance + Polymorphism
+    public class RuteData
+    {
+        public string Rute { get; set; }
+        public string Kapal { get; set; }
+        public string ID { get; set; }
+        public DateTime Tanggal { get; set; }
+        public string JamBerangkat { get; set; }
+        public string JamTiba { get; set; }
+        public decimal Harga { get; set; }
+        public int ScheduleID { get; set; }
+        public string DepartureCity { get; set; }
+        public string ArrivalCity { get; set; }
+        public string ShipName { get; set; }
+        public string ShipId { get; set; }
+    }
+
     public class RuteVIP : RuteKapal
     {
         public string FasilitasVIP { get; set; }
@@ -70,7 +83,6 @@ namespace UI_NaviGO
         }
     }
 
-
     public class PenumpangData
     {
         public string Kategori { get; set; }
@@ -79,13 +91,59 @@ namespace UI_NaviGO
     }
 
     // ===============================
-    // 🔹 STATIC DATA STORAGE
+    // 🔹 RIWAYAT TIKET - PERBAIKAN
+    // ===============================
+    public class RiwayatTiket
+    {
+        public int Id { get; set; } // TAMBAHKAN INI
+        public string PaymentStatus { get; set; }
+        public int BookingID { get; set; }
+        public string ID { get; set; }
+        public string Rute { get; set; }
+        public DateTime TanggalPesan { get; set; }
+        public DateTime TanggalBerangkat { get; set; }
+        public string Waktu { get; set; }
+        public List<PenumpangData> Penumpang { get; set; } = new List<PenumpangData>(); // UBAH KE LIST
+        public string Kapal { get; set; }
+        public string Kelas { get; set; }
+        public decimal TotalHarga { get; set; }
+        public string Status { get; set; }
+        public string MetodePembayaran { get; set; }
+
+        public string RingkasanPenumpang
+        {
+            get
+            {
+                if (Penumpang == null || Penumpang.Count == 0) return "0";
+
+                var kategoriCount = new Dictionary<string, int>();
+                foreach (var p in Penumpang)
+                {
+                    string kategori = p.Kategori ?? "Lainnya";
+                    if (!kategoriCount.ContainsKey(kategori))
+                        kategoriCount[kategori] = 0;
+
+                    kategoriCount[kategori]++;
+                }
+
+                return string.Join(", ", kategoriCount.Select(kvp => $"{kvp.Value} ({kvp.Key})"));
+            }
+        }
+    }
+
+    // ===============================
+    // 🔹 SELECTED TICKET DATA - PERBAIKAN
     // ===============================
     public static class SelectedTicketData
     {
         public static RuteKapal SelectedRute { get; set; }
+        public static RuteData SelectedRutee { get; set; }
         public static string KelasDipilih { get; set; }
+        public static string PaymentStatus { get; set; }
+        
         public static decimal HargaKelas { get; set; }
+        public static BookingDataa UpdatedBookingData { get; set; }
+        public static decimal OriginalTotalPrice { get; set; }
         public static int JumlahDewasa { get; set; } = 1;
         public static int JumlahAnak { get; set; } = 0;
         public static int JumlahBayi { get; set; } = 0;
@@ -93,27 +151,37 @@ namespace UI_NaviGO
         public static List<PenumpangData> Penumpang { get; set; } = new List<PenumpangData>();
         public static string Username { get; set; } = "Pengunjung NaviGo";
         public static string Email { get; set; } = "felicia.angel@example.com";
-        public static int UserID { get; set; } = UserSession.UserId; // TAMBAHKAN INI - default value
+        public static int UserID { get; set; } = UserSession.UserId;
 
+        // PERBAIKAN: Tambahkan properti yang missing
         public static RiwayatTiket TiketReschedule { get; set; }
         public static bool IsRescheduleMode => TiketReschedule != null;
+        public static bool IsEdit { get; set; }
+        public static decimal BasePrice { get; set; }
+        public static int TicketID { get; set; } // TAMBAHKAN INI
         public static int BookingID { get; set; }
 
         public static void Reset()
         {
             SelectedRute = null;
+            SelectedRutee = null;
             KelasDipilih = null;
             HargaKelas = 0;
             JumlahDewasa = 1;
             JumlahAnak = 0;
             JumlahBayi = 0;
             Penumpang.Clear();
+            TiketReschedule = null;
+            IsEdit = false;
+            BasePrice = 0;
+            TicketID = 0;
+            BookingID = 0;
         }
-
     }
 
+
     // ===============================
-    // 🔹 TIKET MANAGER (UNTUK HISTORY)
+    // 🔹 TIKET MANAGER
     // ===============================
     public static class TiketManager
     {
@@ -129,57 +197,4 @@ namespace UI_NaviGO
             return DaftarTiket.Find(t => t.ID == id);
         }
     }
-
-    // ===============================
-    // 🔹 CLASS UNTUK HISTORY
-    // ===============================
-    public class RiwayatTiket
-    {
-        public int BookingID { get; set; }
-        public string ID { get; set; }  // booking_reference
-        public string Rute { get; set; }  // route_name / departure - arrival
-        public DateTime TanggalPesan { get; set; }  // booking_date
-        public DateTime TanggalBerangkat { get; set; }  // departure_date
-        public string Waktu { get; set; }  // departure_time
-        public string Penumpang { get; set; }  // gabungkan nama penumpang & kategori
-        public string Kapal { get; set; }  // ship_name
-        public string Kelas { get; set; }  // selected_class
-        public decimal TotalHarga { get; set; }  // total_price
-        public string Status { get; set; }  // payment_status
-        public string MetodePembayaran { get; set; }
-
-        public string RingkasanPenumpang
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(Penumpang)) return "0";
-
-                // Penumpang disimpan seperti: "John Doe (Dewasa), Jane Doe (Anak-anak), Bob (Dewasa)"
-                var kategoriCount = new Dictionary<string, int>();
-
-                var penumpangList = Penumpang.Split(',');
-                foreach (var p in penumpangList)
-                {
-                    var start = p.IndexOf('(');
-                    var end = p.IndexOf(')');
-
-                    string kategori = "Lainnya";
-                    if (start >= 0 && end > start)
-                    {
-                        kategori = p.Substring(start + 1, end - start - 1).Trim();
-                    }
-
-                    if (!kategoriCount.ContainsKey(kategori))
-                        kategoriCount[kategori] = 0;
-
-                    kategoriCount[kategori]++;
-                }
-
-                // Buat string ringkasan: "2 (Dewasa), 1 (Anak-anak)"
-                return string.Join(", ", kategoriCount.Select(kvp => $"{kvp.Value} ({kvp.Key})"));
-            }
-        }
-
-    }
-
 }

@@ -30,6 +30,7 @@ namespace UI_NaviGO
             InitializeComponent();
             BuildUI();
             LoadDataRute();
+            userSudahPilihTanggal = false;
             SetupEventHandlers();
             LoadDataFromSupabase();
         }
@@ -48,7 +49,7 @@ namespace UI_NaviGO
 
                     string sql = @"
                 SELECT 
-                    s.schedule_id,  -- TAMBAH INI
+                    s.schedule_id, 
                     sh.ship_id,
                     sh.ship_name,
                     CONCAT(r.departure_city, ' - ', r.arrival_city) AS rute,
@@ -86,7 +87,9 @@ namespace UI_NaviGO
                 }
 
                 LoadDataRute();
-                
+                userSudahPilihTanggal = false;
+
+
             }
             catch (Exception ex)
             {
@@ -336,11 +339,7 @@ namespace UI_NaviGO
                 Font = new Font("Segoe UI", 10)
             };
 
-            dtpTanggal.ValueChanged += (s, e) =>
-            {
-                userSudahPilihTanggal = true;
-                FilterData(null, null);
-            };
+            
 
             dgvRoutes = new DataGridView()
             {
@@ -451,9 +450,9 @@ namespace UI_NaviGO
             if (userSudahPilihTanggal)
             {
                 filtered = filtered.FindAll(r =>
-                    r.Tanggal.Month == dtpTanggal.Value.Month &&
-                    r.Tanggal.Year == dtpTanggal.Value.Year
-                );
+    r.Tanggal.Date == dtpTanggal.Value.Date
+);
+
             }
 
             dgvRoutes.Rows.Clear();

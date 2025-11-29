@@ -258,6 +258,24 @@
     <Compile Include="FormDetailPemesanan.Designer.cs">
       <DependentUpon>FormDetailPemesanan.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormEditPemesanan.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormEditPemesanan.Designer.cs">
+      <DependentUpon>FormEditPemesanan.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormEditTiket.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormEditTiket.Designer.cs">
+      <DependentUpon>FormEditTiket.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormInvoice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormInvoice.Designer.cs">
+      <DependentUpon>FormInvoice.cs</DependentUpon>
+    </Compile>
     <Compile Include="FormKirimEmail.cs">
       <SubType>Form</SubType>
     </Compile>
