@@ -106,7 +106,7 @@ namespace UI_NaviGO
                     string sqlBooking = @"
                 SELECT b.booking_id, b.user_id, b.schedule_id, b.selected_class, b.total_price, b.payment_method,
                        b.booking_reference, b.class_surcharge,
-                       u.name, u.email, b.payment_status, 
+                       u.name, u.email, b.payment_status
                 FROM bookings b
                 JOIN users u ON u.user_id = b.user_id
                 WHERE b.booking_id = @bookingId";

@@ -674,7 +674,8 @@ namespace UI_NaviGO
                 BackColor = Color.FromArgb(255, 230, 180),
                 ForeColor = Color.FromArgb(120, 60, 0),
                 FlatStyle = FlatStyle.Flat,
-                Tag = tiket
+                Tag = tiket,
+                Visible = (tiket.PaymentStatus?.ToLower() != "refunded")
             };
             btnEdit.FlatAppearance.BorderSize = 0;
 
@@ -719,11 +720,45 @@ namespace UI_NaviGO
                 }
             };
 
-            
+            // TOMBOL DELETE - HANYA MUNCUL JIKA STATUS REFUNDED ATAU TIDAK ADA TOMBOL REFUND
+            Button btnDelete = new Button
+            {
+                Text = "Delete",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(100, 35),
+                Location = new Point(810, 65), // Posisi yang sama dengan tombol refund
+                BackColor = Color.FromArgb(150, 150, 150),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Tag = tiket,
+                Visible = (tiket.PaymentStatus?.ToLower() == "refunded") // Hanya tampil jika status refunded
+            };
+            btnDelete.FlatAppearance.BorderSize = 0;
+
+            btnDelete.Click += (s, e) =>
+            {
+                var selectedTiket = (RiwayatTiket)((Button)s).Tag;
+
+                DialogResult result = MessageBox.Show(
+                    $"Apakah Anda yakin ingin menghapus tiket {selectedTiket.ID}?\nTiket yang sudah dihapus tidak dapat dikembalikan.",
+                    "Konfirmasi Hapus",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    DeleteBooking(selectedTiket.BookingID);
+                    // Hapus dari daftarRiwayat
+                    daftarRiwayat.RemoveAll(t => t.BookingID == selectedTiket.BookingID);
+                    RefreshTampilan(); // Refresh untuk memperbarui tampilan
+                }
+            };
+
+
 
             Label lblBooked = new Label { Text = $"Dipesan pada: {tiket.TanggalPesan:dd MMMM yyyy}", Font = new Font("Segoe UI", 8F), ForeColor = Color.LightGray, AutoSize = true, Location = new Point(8, 100) };
 
-            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail, btnEdit, btnRefund, lblBooked });
+            inner.Controls.AddRange(new Control[] { lblTanggal, lblWaktu, lblPenumpang, lblKapal, lblKelas, lblTotal, btnDownload, btnDetail, btnEdit, btnRefund, btnDelete, lblBooked });
 
             outer.Controls.Add(inner);
             outer.Controls.Add(header);
@@ -769,6 +804,56 @@ namespace UI_NaviGO
             catch (Exception ex)
             {
                 MessageBox.Show($"Error update status refund: {ex.Message}", "Error",
+                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void DeleteBooking(int bookingId)
+        {
+            try
+            {
+                using (var conn = DatabaseHelper.GetConnection())
+                {
+                    conn.Open();
+
+                    // Mulai transaction
+                    using (var transaction = conn.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Hapus data dari tabel terkait terlebih dahulu (untuk menghindari constraint violation)
+                            string[] deleteQueries = {
+                        "DELETE FROM passengers WHERE booking_id = @bookingId",
+                        "DELETE FROM payments WHERE booking_id = @bookingId",
+                        "DELETE FROM bookings WHERE booking_id = @bookingId"
+                    };
+
+                            foreach (string sql in deleteQueries)
+                            {
+                                using (var cmd = new Npgsql.NpgsqlCommand(sql, conn, transaction))
+                                {
+                                    cmd.Parameters.AddWithValue("bookingId", bookingId);
+                                    cmd.ExecuteNonQuery();
+                                }
+                            }
+
+                            // Commit transaction
+                            transaction.Commit();
+
+                            MessageBox.Show("Tiket berhasil dihapus.", "Success",
+                                          MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            throw new Exception($"Gagal menghapus tiket: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error menghapus tiket: {ex.Message}", "Error",
                               MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
