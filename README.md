@@ -8,44 +8,144 @@ NaviGo aplikasi desktop C# (.NET, WPF/WinForms) untuk pemesanan tiket kapal deng
 
 # Fitur Utama
 1. Login & Registrasi
-Validasi email dan password
-Menyimpan data pengguna ke database
+  - Validasi email dan password
+  - Menyimpan data pengguna ke database
 2. Cek Jadwal & Rute Kapal
-Filter berdasarkan asal, tujuan, tanggal
-Menampilkan tabel jadwal lengkap
+  - Filter berdasarkan asal, tujuan, tanggal
+  - Menampilkan tabel jadwal lengkap
 3. Input Data Penumpang
-Tambah/Hapus penumpang
-Kategori dewasa/anak/bayi
+  - Tambah/Hapus penumpang
+  - Kategori dewasa/anak/bayi
 4. Pembayaran Tiket
-Memilih kelas (Ekonomi/Bisnis/VIP)
-Menghitung total harga otomatis
-Konfirmasi nominal pembayaran
+  - Memilih kelas (Ekonomi/Bisnis/VIP)
+  - Menghitung total harga otomatis
+  - Konfirmasi nominal pembayaran
 5. Pengiriman E-Ticket
-Menggunakan SendGrid API
-Format PDF lengkap dengan detail perjalanan & status LUNAS
+  - Menggunakan SendGrid API
+  - Format PDF lengkap dengan detail perjalanan & status LUNAS
 6. Riwayat Pemesanan
-Menampilkan transaksi sebelumnya
+  - Menampilkan transaksi sebelumnya
 
 # Tech Stack
-Frontend
-C# Windows Forms (WinForms)
-Figma untuk mengedit dan eksplorasi UI
+- Frontend
+  - C# Windows Forms (WinForms)
+  - Figma untuk mengedit dan eksplorasi UI
 
-Backend
-Menggunakan C# OOP
-DotNetEnv untuk load file .env
+- Backend
+  - Menggunakan C# OOP
+  - DotNetEnv untuk load file .env
+  - Session untuk menyimpan data login user
+  - Hashing password
 
-Database
-PostgreSQL 
-Hosting menggunakan supabase
+- Database
+  - PostgreSQL
+  - Hosting menggunakan supabase
 
-External API
-SendGrid Email API = Untuk mengirim E-Ticket PDF ke email pengguna.
+- External API
+  - SendGrid Email API = Untuk mengirim E-Ticket PDF ke email pengguna.
 
-Tools
-Visual Studio 2022
-Git dan GitHub
-Supabase
+- Tools
+  - Visual Studio 2022
+  - Git dan GitHub
+  - Supabase
+
+# Struktur Kode
+```
+NaviGO/
+│
+├── NaviGoApp/                         
+│   │
+│   ├── Admin.cs
+│   ├── Booking.cs
+│   ├── Customer.cs
+│   ├── Payment.cs
+│   ├── Route.cs
+│   ├── Schedule.cs
+│   ├── Ship.cs
+│   ├── Ticket.cs
+│   ├── User.cs
+│   │
+│   ├── Program.cs
+│   ├── NaviGoApp.csproj
+│   │
+│   ├── bin/
+│   │   └── Debug/net9.0/
+│   │       ├── NaviGoApp.exe
+│   │       ├── NaviGoApp.dll
+│   │       ├── NaviGoApp.deps.json
+│   │       ├── NaviGoApp.pdb
+│   │       └── NaviGoApp.runtimeconfig.json
+│   │
+│   └── obj/
+│       └── Debug/net9.0/
+│           ├── NaviGoApp.csproj.nuget.g.props
+│           ├── NaviGoApp.csproj.nuget.g.targets
+│           ├── NaviGoApp.csproj.nuget.dgspec.json
+│           ├── project.assets.json
+│           └── project.nuget.cache
+│
+│
+├── UI-NaviGO/                          
+│   │
+│   ├── Properties/
+│   │   ├── AssemblyInfo.cs
+│   │   ├── Resources.Designer.cs
+│   │   ├── Resources.resx
+│   │   ├── Settings.Designer.cs
+│   │   └── Settings.settings
+│   │
+│   ├── Resources/                      
+│   │
+│   ├── App.config                      
+│   ├── DatabaseHelper.cs               
+│   ├── Models.cs                       
+│   ├── TextBoxExtensions.cs           
+│   ├── userSession.cs                 
+│   │
+│   ├── UI-NaviGO.csproj
+│   │
+│   ├── UserLogin.cs
+│   ├── UserLogin.Designer.cs
+│   │
+│   ├── UserRegister.cs
+│   ├── UserRegister.Designer.cs
+│   ├── UserRegister.resx
+│   │
+│   ├── UserSuccess.cs
+│   ├── UserSuccess.Designer.cs
+│   │
+│   ├── UserJadwal.cs
+│   ├── UserJadwal.Designer.cs
+│   ├── UserJadwal.resx
+│   │
+│   ├── UserPenumpang.cs
+│   ├── UserPenumpang.Designer.cs
+│   │
+│   ├── UserPembayaran.cs
+│   ├── UserPembayaran.Designer.cs
+│   │
+│   ├── UserHistory.cs
+│   ├── UserHistory.Designer.cs
+│   │
+│   ├── FormDetailPemesanan.cs
+│   ├── FormDetailPemesanan.Designer.cs
+│   │
+│   ├── FormEditPemesanan.cs
+│   ├── FormEditPemesanan.Designer.cs
+│   │
+│   ├── FormEditTiket.cs
+│   ├── FormEditTiket.Designer.cs
+│   │
+│   ├── FormKirimEmail.cs
+│   ├── FormKirimEmail.Designer.cs
+│   │
+│   ├── FormProfile.cs
+│   ├── FormProfile.Designer.cs
+│   │
+└── └── packages.config                 
+
+```
+
 
 # Desain UIUX
 <img src="./Screenshot 2025-09-08 143116.png" alt="Class Diagram" width="600"/>
